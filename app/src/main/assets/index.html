@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Must Monitor</title>
+<style>
+  :root { --bg:#0f1115; --card:#181b22; --line:#262a33; --fg:#e6e8ee; --dim:#8a90a0; --ok:#3ecf8e; --warn:#f5a524; --bad:#f31260; --pv:#f5c542; --load:#4ea1ff; --bat:#b57cff; --grid:#3ecf8e; }
+  * { box-sizing: border-box; }
+  body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; }
+  h1 { font-size:18px; margin:0; }
+  h2 { font-size:15px; margin:0; font-weight:600; }
+  .chip { padding:4px 10px; border-radius:999px; font-size:13px; background:var(--card); }
+  .chip.ok { color:var(--ok); } .chip.bad { color:var(--bad); }
+  .hero { margin:0 16px 12px; padding:16px; background:var(--card); border-radius:14px; }
+  .hero .row { display:flex; justify-content:space-between; align-items:baseline; }
+  .soc { font-size:44px; font-weight:700; }
+  .bar { height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:10px 0 8px; }
+  .bar > div { height:100%; background:var(--ok); transition:width .4s; }
+  .runtime { color:var(--dim); font-size:14px; }
+  .flow { margin-top:8px; font-size:15px; font-weight:500; }
+  .flow.chg { color:var(--ok); } .flow.dis { color:var(--warn); }
+  .gridline { margin-top:6px; font-size:14px; }
+  .gridline.on { color:var(--ok); } .gridline.off { color:var(--bad); }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin:0 16px; }
+  .card { background:var(--card); border-radius:12px; padding:12px; }
+  .card .k { color:var(--dim); font-size:12px; }
+  .card .v { font-size:22px; font-weight:600; margin-top:4px; font-variant-numeric: tabular-nums; }
+  .section-head { display:flex; justify-content:space-between; align-items:center; margin:20px 16px 10px; gap:10px; }
+  .tabs { display:flex; background:var(--card); border-radius:999px; padding:3px; }
+  .tabs button { background:none; border:0; color:var(--dim); padding:5px 12px; border-radius:999px; font:inherit; font-size:13px; cursor:pointer; }
+  .tabs button.on { background:var(--line); color:var(--fg); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin:0 16px; }
+  .stats .v { font-size:18px; }
+  .chart { margin:10px 16px; background:var(--card); border-radius:12px; padding:12px; }
+  .chart-head { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
+  .legend { display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--dim); }
+  .legend i { display:inline-block; width:10px; height:3px; margin-right:5px; vertical-align:middle; border-radius:2px; }
+  canvas { width:100%; height:200px; display:block; touch-action:pan-y; }
+  canvas.short { height:140px; }
+  .outages { list-style:none; margin:0; padding:0; font-size:14px; }
+  .outages li { display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); }
+  .outages li:first-child { border-top:0; }
+  .outages .d { color:var(--dim); font-variant-numeric: tabular-nums; }
+  .empty { color:var(--dim); font-size:14px; }
+  details { margin:20px 16px; background:var(--card); border-radius:12px; padding:12px; }
+  summary { cursor:pointer; font-weight:600; font-size:15px; }
+  .form { display:grid; gap:10px; margin-top:12px; }
+  .form label { display:grid; gap:4px; font-size:12px; color:var(--dim); }
+  .form input[type=text], .form input[type=password] { background:var(--bg); border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:9px 10px; font:inherit; font-size:14px; width:100%; }
+  .form select { background:var(--bg); border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:9px 10px; font:inherit; font-size:14px; }
+  .form .check { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--fg); }
+  .btns { display:flex; flex-wrap:wrap; gap:8px; }
+  .btns button, .chat-pick button { background:var(--line); color:var(--fg); border:0; border-radius:8px; padding:9px 14px; font:inherit; font-size:14px; cursor:pointer; }
+  .btns button.primary { background:var(--load); color:#071222; font-weight:600; }
+  .hint { font-size:12px; color:var(--dim); line-height:1.5; }
+  .msg { font-size:13px; min-height:1em; }
+  .msg.err { color:var(--bad); } .msg.ok { color:var(--ok); }
+  .chat-pick { display:flex; flex-wrap:wrap; gap:6px; }
+  footer { color:var(--dim); font-size:12px; padding:8px 16px 20px; }
+  footer a { color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Must HBP18</h1>
+  <span id="status" class="chip">…</span>
+</header>
+
+<section class="hero">
+  <div class="row">
+    <div class="soc" id="soc">–</div>
+    <div id="state" class="chip">–</div>
+  </div>
+  <div class="bar"><div id="socbar" style="width:0"></div></div>
+  <div class="runtime" id="runtime">–</div>
+  <div class="flow" id="flow"></div>
+  <div class="gridline" id="gridline"></div>
+</section>
+
+<section class="grid" id="cards"></section>
+
+<div class="section-head">
+  <h2>Історія</h2>
+  <div class="tabs" id="tabs">
+    <button data-h="1">1 год</button><button data-h="6">6 год</button><button data-h="24">24 год</button>
+  </div>
+</div>
+
+<section class="stats" id="stats"></section>
+
+<section class="chart">
+  <div class="chart-head">
+    <h2>Потужність, W</h2>
+    <div class="legend">
+      <span><i style="background:var(--load)"></i>Навантаження</span>
+      <span><i style="background:rgba(78,161,255,.45)"></i>Пік</span>
+      <span><i style="background:var(--pv)"></i>PV</span>
+      <span><i style="background:var(--bat)"></i>Батарея (+заряд / −розряд)</span>
+    </div>
+  </div>
+  <canvas id="chPower"></canvas>
+</section>
+
+<section class="chart">
+  <div class="chart-head">
+    <h2>Батарея, %</h2>
+    <div class="legend"><span><i style="background:var(--ok)"></i>Заряд (оцінка)</span></div>
+  </div>
+  <canvas id="chSoc" class="short"></canvas>
+</section>
+
+<section class="chart">
+  <div class="chart-head">
+    <h2>Мережа, V</h2>
+    <div class="legend"><span><i style="background:var(--grid)"></i>Напруга</span><span><i style="background:rgba(243,18,96,.5)"></i>Немає світла</span></div>
+  </div>
+  <canvas id="chGrid" class="short"></canvas>
+</section>
+
+<section class="chart">
+  <div class="chart-head"><h2>Відключення</h2></div>
+  <ul class="outages" id="outages"></ul>
+</section>
+
+<details id="settings">
+  <summary>Налаштування</summary>
+  <div class="form">
+    <div class="hint">
+      1. Створіть бота в <b>@BotFather</b> (/newbot) і вставте токен.<br>
+      2. Напишіть боту будь-що (або додайте його в групу) і натисніть «Знайти chat id».<br>
+      3. Збережіть і надішліть тест. Повідомлення приходять, коли світло зникає і з'являється.
+    </div>
+    <label>Токен бота
+      <input type="password" id="tgToken" autocomplete="off" spellcheck="false">
+    </label>
+    <label>Chat id
+      <input type="text" id="tgChat" autocomplete="off" spellcheck="false" placeholder="напр. 123456789 або -100…">
+    </label>
+    <div class="chat-pick" id="chatPick"></div>
+    <label class="check"><input type="checkbox" id="tgEnabled"> Надсилати сповіщення</label>
+    <div class="btns">
+      <button class="primary" id="btnSave">Зберегти</button>
+      <button id="btnDetect">Знайти chat id</button>
+      <button id="btnTest">Тест</button>
+    </div>
+    <div class="msg" id="tgMsg"></div>
+    <label>Напрям струму батареї
+      <select id="batSign">
+        <option value="0">Авто</option>
+        <option value="1">плюс = заряд</option>
+        <option value="-1">мінус = заряд</option>
+      </select>
+    </label>
+    <div class="hint" id="batHint"></div>
+  </div>
+</details>
+
+<footer>
+  <span id="meta"></span> · <a href="/metrics">/metrics</a> · <a href="/api/state">/api/state</a> · <a href="/api/history">/api/history</a>
+</footer>
+
+<script>
+const CARDS = [
+  ["must_battery_voltage_volts", "Батарея", "V", 1],
+  ["bat_flow_w", "Заряд(+)/розряд(−)", "W", 0],
+  ["bat_flow_a", "Струм батареї", "A", 1],
+  ["must_load_power_watts", "Навантаження", "W", 0],
+  ["must_load_percent", "Завантаження", "%", 0],
+  ["must_grid_voltage_volts", "Мережа", "V", 1],
+  ["must_grid_power_watts", "Мережа", "W", 0],
+  ["must_pv_power_watts", "PV", "W", 0],
+  ["must_pv_voltage_volts", "PV", "V", 1],
+  ["must_pv_charger_current_amps", "PV заряд", "A", 1],
+  ["must_inverter_voltage_volts", "Вихід", "V", 1],
+  ["must_inverter_frequency_hertz", "Вихід", "Hz", 2],
+  ["must_dc_radiator_temp_celsius", "DC радіатор", "°C", 0],
+  ["must_transformer_temp_celsius", "Трансформатор", "°C", 0],
+];
+const STATES = { PowerOn:"Старт", SelfTest:"Самотест", OffGrid:"Від батареї", GridTie:"Від мережі", Bypass:"Байпас", Stop:"Стоп", GridCharging:"Заряд від мережі" };
+const GAP_S = 95; // break lines when points are further apart (history step is 30 s)
+const $ = id => document.getElementById(id);
+const getJson = async url => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
+const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+
+$("cards").innerHTML = CARDS.map(([k, label, unit]) =>
+  `<div class="card"><div class="k">${label}, ${unit}</div><div class="v" id="c_${k}">–</div></div>`).join("");
+
+function fmtDur(h) {
+  if (!isFinite(h) || h <= 0) return "–";
+  const m = Math.round(h * 60);
+  if (m < 60) return m + " хв";
+  const d = Math.floor(m / 1440), hh = Math.floor(m % 1440 / 60), mm = m % 60;
+  return (d ? d + " д " : "") + hh + " год " + mm + " хв";
+}
+const pad2 = n => String(n).padStart(2, "0");
+const hm = ts => { const d = new Date(ts * 1000); return pad2(d.getHours()) + ":" + pad2(d.getMinutes()); };
+const DAYS = ["нд", "пн", "вт", "ср", "чт", "пт", "сб"];
+const dayHm = ts => {
+  const d = new Date(ts * 1000), today = new Date();
+  return (d.toDateString() === today.toDateString() ? "" : DAYS[d.getDay()] + " ") + hm(ts);
+};
+
+// ---------- live state ----------
+let LIVE = null;
+async function refresh() {
+  try {
+    const s = await getJson("/api/state");
+    LIVE = s;
+    const v = s.values || {};
+    $("status").textContent = s.online ? "online" : "offline";
+    $("status").className = "chip " + (s.online ? "ok" : "bad");
+    $("state").textContent = STATES[s.workState] || s.workState || "–";
+
+    const soc = v.must_battery_soc_estimate_percent;
+    $("soc").textContent = soc == null ? "–" : "~" + Math.round(soc) + "%";
+    $("socbar").style.width = (soc || 0) + "%";
+    $("socbar").style.background = soc < 20 ? "var(--bad)" : soc < 40 ? "var(--warn)" : "var(--ok)";
+
+    const load = v.must_load_power_watts || 0;
+    const onGrid = s.gridOn != null ? s.gridOn : (v.must_grid_voltage_volts || 0) > 150;
+    if (onGrid) $("runtime").textContent = "Живлення від мережі";
+    else if (load > 0 && soc != null) $("runtime").textContent = "Вистачить приблизно на " + fmtDur(soc / 100 * s.batteryWh / load) + " при " + Math.round(load) + " W";
+    else $("runtime").textContent = "–";
+
+    const gl = $("gridline");
+    if (s.gridOn == null || !s.gridSince) { gl.textContent = ""; gl.className = "gridline"; }
+    else {
+      const dur = fmtDur((Date.now() - s.gridSince) / 3600000);
+      gl.textContent = (s.gridOn ? "Світло є вже " : "Світла немає вже ") + dur + " (з " + dayHm(s.gridSince / 1000) + ")";
+      gl.className = "gridline " + (s.gridOn ? "on" : "off");
+    }
+
+    const known = v.must_battery_charge_power_watts != null;
+    v.bat_flow_w = known ? v.must_battery_charge_power_watts : v.must_battery_power_watts;
+    v.bat_flow_a = known ? v.must_battery_charge_current_amps : v.must_battery_current_amps;
+    const fl = $("flow"), fw = v.bat_flow_w, fa = v.bat_flow_a;
+    if (!known) {
+      fl.className = "flow";
+      fl.textContent = fw == null ? "" : "Батарея: " + Math.round(fw) + " W" + (fa != null ? " · " + fa.toFixed(1) + " A" : "") +
+        " (напрям ще не визначено — див. налаштування)";
+    } else if (Math.abs(fw) < 15) { fl.className = "flow"; fl.textContent = "Батарея в режимі очікування"; }
+    else {
+      const chg = fw > 0;
+      fl.className = "flow " + (chg ? "chg" : "dis");
+      fl.textContent = (chg ? "⚡ Заряджається " : "▼ Розряджається ") + (fa != null ? Math.abs(fa).toFixed(1) + " A · " : "") + Math.abs(Math.round(fw)) + " W";
+    }
+
+    for (const [k, , , d] of CARDS) {
+      const x = v[k];
+      $("c_" + k).textContent = x == null ? "–" : x.toFixed(d);
+    }
+    const age = s.lastOk ? Math.round((Date.now() - s.lastOk) / 1000) + " с тому" : "ніколи";
+    $("meta").textContent = (s.device || "немає пристрою") + " · оновлено " + age + (s.lastError ? " · " + s.lastError : "");
+  } catch (e) {
+    $("status").textContent = "error";
+    $("status").className = "chip bad";
+  }
+}
+
+// ---------- charts ----------
+let RANGE_H = +(store.get("rangeH") || 24);
+if (![1, 6, 24].includes(RANGE_H)) RANGE_H = 24;
+let HIST = null, EVENTS = null, CHARTS = [], hoverT = null;
+
+function setRange(h) {
+  RANGE_H = h; store.set("rangeH", h);
+  for (const b of $("tabs").children) b.classList.toggle("on", +b.dataset.h === h);
+  renderHistory();
+}
+$("tabs").addEventListener("click", e => { if (e.target.dataset.h) setRange(+e.target.dataset.h); });
+
+function niceTicks(lo, hi, n) {
+  const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+  const out = [];
+  for (let v = Math.floor(lo / step) * step; v <= Math.ceil(hi / step) * step + step / 2; v += step) out.push(+v.toFixed(6));
+  return out;
+}
+
+function nearest(rows, t) {
+  let a = 0, b = rows.length - 1;
+  if (b < 0) return null;
+  while (b - a > 1) { const m = (a + b) >> 1; if (rows[m][0] < t) a = m; else b = m; }
+  const r = Math.abs(rows[a][0] - t) <= Math.abs(rows[b][0] - t) ? rows[a] : rows[b];
+  return Math.abs(r[0] - t) <= GAP_S ? r : null;
+}
+
+function draw(c) {
+  const el = c.el, dpr = window.devicePixelRatio || 1;
+  const W = el.clientWidth, H = el.clientHeight;
+  el.width = W * dpr; el.height = H * dpr;
+  const ctx = el.getContext("2d");
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const L = 40, R = 8, T = 8, B = 20, pw = W - L - R, ph = H - T - B;
+  const { rows, t0, t1, series, opt } = c;
+
+  if (rows.length < 2) {
+    ctx.fillStyle = "#8a90a0"; ctx.font = "14px system-ui";
+    ctx.fillText("Історія збирається (точка раз на 30 с)…", 10, 30);
+    return;
+  }
+
+  let lo = Infinity, hi = -Infinity;
+  for (const r of rows) for (const s of series) if (!s.hidden && r[s.i] != null) { lo = Math.min(lo, r[s.i]); hi = Math.max(hi, r[s.i]); }
+  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  if (opt.min != null) lo = Math.min(lo, opt.min);
+  if (opt.max != null) hi = Math.max(hi, opt.max);
+  if (opt.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+  if (hi - lo < (opt.minSpan || 1)) { const m = (hi + lo) / 2, h = (opt.minSpan || 1) / 2; lo = m - h; hi = m + h; }
+  const ticks = niceTicks(lo, hi, 4);
+  lo = ticks[0]; hi = ticks[ticks.length - 1];
+  const X = t => L + (t - t0) / (t1 - t0) * pw;
+  const Y = y => T + ph - (y - lo) / (hi - lo) * ph;
+
+  // outage shading
+  ctx.fillStyle = "rgba(243,18,96,.13)";
+  for (const [a, b] of opt.shade || []) ctx.fillRect(X(a), T, Math.max(1, X(b) - X(a)), ph);
+
+  // y grid
+  ctx.font = "11px system-ui"; ctx.textBaseline = "middle"; ctx.textAlign = "right";
+  for (const v of ticks) {
+    ctx.strokeStyle = v === 0 ? "#3a404d" : "#22262e"; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(L, Math.round(Y(v)) + .5); ctx.lineTo(W - R, Math.round(Y(v)) + .5); ctx.stroke();
+    ctx.fillStyle = "#8a90a0"; ctx.fillText(Math.abs(v) >= 1000 ? (v / 1000) + "k" : v, L - 6, Y(v));
+  }
+
+  // x ticks on local time boundaries
+  const step = RANGE_H <= 1 ? 600 : RANGE_H <= 6 ? 3600 : 3 * 3600;
+  const off = new Date().getTimezoneOffset() * 60;
+  ctx.textAlign = "center"; ctx.textBaseline = "top";
+  for (let t = Math.ceil((t0 - off) / step) * step + off; t <= t1; t += step) {
+    const x = X(t);
+    if (x < L + 14 || x > W - R - 14) continue;
+    ctx.fillStyle = "#8a90a0"; ctx.fillText(hm(t), x, T + ph + 5);
+  }
+
+  // series
+  ctx.save();
+  ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
+  for (const s of series) {
+    if (s.hidden) continue;
+    const segs = []; let cur = null, prevT = -Infinity;
+    for (const r of rows) {
+      const y = r[s.i];
+      if (y == null || r[0] - prevT > GAP_S) { if (cur && cur.length) segs.push(cur); cur = y == null ? null : []; }
+      if (y != null) { if (!cur) cur = []; cur.push([X(r[0]), Y(y)]); }
+      prevT = y == null ? -Infinity : r[0];
+    }
+    if (cur && cur.length) segs.push(cur);
+    for (const seg of segs) {
+      if (s.fill) {
+        const base = Y(Math.max(lo, Math.min(hi, 0)));
+        ctx.beginPath(); ctx.moveTo(seg[0][0], base);
+        for (const [x, y] of seg) ctx.lineTo(x, y);
+        ctx.lineTo(seg[seg.length - 1][0], base); ctx.closePath();
+        ctx.fillStyle = s.fill; ctx.fill();
+      }
+      ctx.beginPath();
+      seg.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y));
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.6; ctx.lineJoin = "round"; ctx.stroke();
+    }
+  }
+  ctx.restore();
+
+  // crosshair + tooltip
+  if (hoverT == null || hoverT < t0 || hoverT > t1) return;
+  const r = nearest(rows, hoverT);
+  if (!r) return;
+  const x = X(r[0]);
+  ctx.strokeStyle = "#5a6070"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(Math.round(x) + .5, T); ctx.lineTo(Math.round(x) + .5, T + ph); ctx.stroke();
+  const lines = [[hm(r[0]), "#e6e8ee"]];
+  for (const s of series) {
+    if (r[s.i] == null) continue;
+    if (!s.hidden) { ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(x, Y(r[s.i]), 3, 0, 7); ctx.fill(); }
+    lines.push([s.label + ": " + r[s.i].toFixed(s.dec || 0) + " " + s.unit, s.hidden ? "#8a90a0" : s.color]);
+  }
+  ctx.font = "12px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "top";
+  const bw = Math.max(...lines.map(([t]) => ctx.measureText(t).width)) + 16, bh = lines.length * 16 + 10;
+  let bx = x + 10; if (bx + bw > W - R) bx = x - 10 - bw;
+  const by = T + 4;
+  ctx.fillStyle = "rgba(15,17,21,.92)"; ctx.strokeStyle = "#2f3440";
+  ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 6) : ctx.rect(bx, by, bw, bh); ctx.fill(); ctx.stroke();
+  lines.forEach(([t, col], k) => { ctx.fillStyle = col; ctx.fillText(t, bx + 8, by + 6 + k * 16); });
+}
+
+function attachHover(el) {
+  const move = e => {
+    const c = CHARTS.find(c => c.el === el); if (!c) return;
+    const rect = el.getBoundingClientRect(), L = 40, R = 8;
+    hoverT = c.t0 + (e.clientX - rect.left - L) / (rect.width - L - R) * (c.t1 - c.t0);
+    CHARTS.forEach(draw);
+  };
+  el.addEventListener("pointermove", move);
+  el.addEventListener("pointerdown", move);
+  el.addEventListener("pointerleave", () => { hoverT = null; CHARTS.forEach(draw); });
+}
+["chPower", "chSoc", "chGrid"].forEach(id => attachHover($(id)));
+
+function outageIntervals(now) {
+  const ev = (EVENTS && EVENTS.events) || [];
+  const out = []; let offStart = null;
+  ev.forEach(([ts, on], k) => {
+    const t = ts / 1000;
+    if (!on) offStart = t;
+    else { if (offStart != null || k === 0) out.push([offStart != null ? offStart : -Infinity, t]); offStart = null; }
+  });
+  if (EVENTS && EVENTS.gridOn === false) out.push([offStart != null ? offStart : (EVENTS.gridSince ? EVENTS.gridSince / 1000 : -Infinity), now]);
+  return out;
+}
+
+function renderHistory() {
+  if (!HIST) return;
+  const now = Date.now() / 1000, t1 = now, t0 = now - RANGE_H * 3600;
+  const ix = k => HIST.keys.indexOf(k);
+  const rows = HIST.rows.filter(r => r[0] >= t0);
+  const all = outageIntervals(now);
+  const shade = all.map(([a, b]) => [Math.max(a, t0), Math.min(b, t1)]).filter(([a, b]) => b > a);
+
+  // stats
+  const iL = ix("must_load_power_watts"), iM = ix("must_load_power_max_watts"), iP = ix("must_pv_power_watts");
+  let wh = 0, pvWh = 0, sum = 0, n = 0, peak = null;
+  for (let k = 0; k < rows.length; k++) {
+    const r = rows[k];
+    if (r[iL] != null) { sum += r[iL]; n++; }
+    const pk = r[iM] != null ? r[iM] : r[iL];
+    if (pk != null && (peak == null || pk > peak)) peak = pk;
+    if (k > 0) {
+      const dt = r[0] - rows[k - 1][0];
+      if (dt <= GAP_S) {
+        if (r[iL] != null) wh += r[iL] * dt / 3600;
+        if (iP >= 0 && r[iP] != null) pvWh += r[iP] * dt / 3600;
+      }
+    }
+  }
+  const offS = shade.reduce((s, [a, b]) => s + (b - a), 0);
+  const stats = [
+    ["Сер. навантаження", n ? Math.round(sum / n) + " W" : "–"],
+    ["Пік", peak != null ? Math.round(peak) + " W" : "–"],
+    ["Спожито", n ? (wh / 1000).toFixed(2) + " kWh" : "–"],
+    ["PV", n ? (pvWh / 1000).toFixed(2) + " kWh" : "–"],
+    ["Відключень", String(shade.length)],
+    ["Без світла", offS ? fmtDur(offS / 3600) : "0 хв"],
+  ];
+  $("stats").innerHTML = stats.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
+
+  CHARTS = [
+    { el: $("chPower"), rows, t0, t1, opt: { zero: true, minSpan: 100 }, series: [
+      { i: iM, color: "rgba(78,161,255,.45)", label: "Пік", unit: "W", width: 1 },
+      { i: iL, color: "#4ea1ff", fill: "rgba(78,161,255,.12)", label: "Навантаження", unit: "W" },
+      { i: iP, color: "#f5c542", label: "PV", unit: "W" },
+      { i: HIST.rows.some(r => r[ix("must_battery_charge_power_watts")] != null) ? ix("must_battery_charge_power_watts") : ix("must_battery_power_watts"),
+        color: "#b57cff", label: "Батарея (+заряд)", unit: "W" },
+      { i: ix("must_battery_charge_current_amps"), color: "#b57cff", label: "Струм", unit: "A", dec: 1, hidden: true },
+    ] },
+    { el: $("chSoc"), rows, t0, t1, opt: { min: 0, max: 100, shade }, series: [
+      { i: ix("must_battery_soc_estimate_percent"), color: "#3ecf8e", fill: "rgba(62,207,142,.10)", label: "Заряд", unit: "%" },
+      { i: ix("must_battery_voltage_volts"), color: "#3ecf8e", label: "Напруга", unit: "V", dec: 1, hidden: true },
+    ] },
+    { el: $("chGrid"), rows, t0, t1, opt: { zero: true, minSpan: 50, shade }, series: [
+      { i: ix("must_grid_voltage_volts"), color: "#3ecf8e", label: "Мережа", unit: "V" },
+    ] },
+  ];
+  CHARTS.forEach(draw);
+
+  // outage list (newest first)
+  const list = all.filter(([a, b]) => b > t0).reverse().slice(0, 15);
+  $("outages").innerHTML = list.length ? list.map(([a, b]) => {
+    const ongoing = EVENTS.gridOn === false && b === now;
+    const from = isFinite(a) ? dayHm(a) : "?";
+    const to = ongoing ? "зараз" : hm(b);
+    const dur = isFinite(a) ? fmtDur((b - a) / 3600) : "";
+    return `<li><span>${from} – ${to}</span><span class="d">${dur}</span></li>`;
+  }).join("") : `<li class="empty">За обраний період відключень не було</li>`;
+}
+
+async function loadHistory() {
+  try {
+    const [h, e] = await Promise.all([getJson("/api/history"), getJson("/api/events")]);
+    HIST = h; EVENTS = e;
+    renderHistory();
+  } catch {}
+}
+window.addEventListener("resize", () => CHARTS.forEach(draw));
+
+// ---------- telegram settings ----------
+function tgMsg(text, cls) { $("tgMsg").textContent = text; $("tgMsg").className = "msg " + (cls || ""); }
+async function post(url, data) {
+  const r = await fetch(url, { method: "POST", body: new URLSearchParams(data) });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+function applySettings(s) {
+  $("tgChat").value = s.chatId || "";
+  $("tgEnabled").checked = !!s.enabled;
+  $("tgToken").value = "";
+  $("tgToken").placeholder = s.tokenSet ? "збережено (…" + s.tokenHint + "), залиште порожнім" : "123456789:AA…";
+  $("batSign").value = String(s.batterySign || 0);
+  $("batHint").textContent = s.batterySignLearned
+    ? "Авто: визначено, що заряд = " + (s.batterySignLearned > 0 ? "плюс" : "мінус") + ". Якщо показує навпаки — оберіть вручну."
+    : "Авто: визначиться при першому відключенні світла без сонця (батарея тоді точно розряджається). Або оберіть вручну, порівнявши з дисплеєм інвертора.";
+  if (s.lastError) tgMsg("Остання помилка: " + s.lastError, "err");
+  else if (s.lastSent) tgMsg("Останнє повідомлення надіслано " + dayHm(s.lastSent / 1000), "ok");
+}
+async function loadSettings() {
+  try {
+    const s = await getJson("/api/settings");
+    applySettings(s);
+    if (!s.tokenSet) $("settings").open = true;
+  } catch {}
+}
+$("btnSave").onclick = async () => {
+  try {
+    applySettings(await post("/api/settings", { token: $("tgToken").value, chatId: $("tgChat").value, enabled: $("tgEnabled").checked ? "1" : "0" }));
+    tgMsg("Збережено", "ok");
+  } catch (e) { tgMsg(e.message, "err"); }
+};
+$("batSign").onchange = async () => {
+  try { applySettings(await post("/api/settings", { batterySign: $("batSign").value })); refresh(); } catch (e) { tgMsg(e.message, "err"); }
+};
+$("btnTest").onclick = async () => {
+  tgMsg("Надсилаю…");
+  try { await post("/api/telegram/test", { token: $("tgToken").value, chatId: $("tgChat").value }); tgMsg("Надіслано, перевірте Telegram", "ok"); }
+  catch (e) { tgMsg(e.message, "err"); }
+};
+$("btnDetect").onclick = async () => {
+  tgMsg("Шукаю…"); $("chatPick").innerHTML = "";
+  try {
+    const { chats } = await post("/api/telegram/detect", { token: $("tgToken").value });
+    if (!chats.length) { tgMsg("Нічого не знайдено. Напишіть боту повідомлення і спробуйте ще раз.", "err"); return; }
+    if (chats.length === 1) { $("tgChat").value = chats[0].id; tgMsg("Знайдено: " + (chats[0].title || chats[0].id) + ". Натисніть «Зберегти».", "ok"); return; }
+    tgMsg("Оберіть чат:");
+    for (const c of chats) {
+      const b = document.createElement("button");
+      b.textContent = c.title || c.id;
+      b.onclick = () => { $("tgChat").value = c.id; $("chatPick").innerHTML = ""; tgMsg("Обрано. Натисніть «Зберегти».", "ok"); };
+      $("chatPick").appendChild(b);
+    }
+  } catch (e) { tgMsg(e.message, "err"); }
+};
+
+setRange(RANGE_H);
+refresh(); loadHistory(); loadSettings();
+setInterval(refresh, 5000);
+setInterval(loadHistory, 30000);
+</script>
+</body>
+</html>

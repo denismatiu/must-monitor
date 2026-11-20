@@ -1,0 +1,29 @@
+.gradle/
+build/
+app/build/
+local.properties
+.idea/
+*.iml
+
+# build outputs / binaries
+*.apk
+*.aab
+*.ap_
+*.dex
+*.class
+*.so
+output-metadata.json
+captures/
+.kotlin/
+.externalNativeBuild/
+.cxx/
+
+# signing keys
+*.jks
+*.keystore
+
+# OS
+.DS_Store
+
+# gradle-wrapper.jar must stay committed
+!gradle/wrapper/gradle-wrapper.jar

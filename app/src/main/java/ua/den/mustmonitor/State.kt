@@ -10,6 +10,11 @@ object State {
     /** null until the first reading ever. */
     @Volatile var gridOn: Boolean? = null
     @Volatile var gridSince: Long = 0
+    @Volatile var batteryWh: Double = 3000.0
+
+    /** Best available state of charge: energy-counted if available, else voltage-based. */
+    fun soc(v: Map<String, Double> = values): Double? =
+        v["must_battery_soc_energy_percent"] ?: v["must_battery_soc_estimate_percent"]
 
     const val HISTORY_RETENTION_MS = 24 * 3600_000L
     const val HISTORY_MAX = 3200
@@ -28,6 +33,8 @@ object State {
         Col("must_battery_voltage_volts", "must_battery_voltage_volts", Agg.AVG),
         Col("must_grid_voltage_volts", "must_grid_voltage_volts", Agg.AVG),
         Col("must_battery_soc_estimate_percent", "must_battery_soc_estimate_percent", Agg.AVG),
+        Col("must_battery_soc_energy_percent", "must_battery_soc_energy_percent", Agg.AVG),
+        Col("must_grid_import_watts", "must_grid_import_watts", Agg.AVG),
     )
     val historyKeys = cols.map { it.name }
 

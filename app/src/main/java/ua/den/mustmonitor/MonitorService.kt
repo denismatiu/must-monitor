@@ -84,6 +84,7 @@ class MonitorService : Service() {
                 val before = State.lastOk
                 Inverter.poll(applicationContext)
                 if (State.lastOk != before) {
+                    State.batteryWh = settings.batteryWh.toDouble()
                     State.values = Battery.apply(settings, State.values)
                     State.sample(State.values)
                     grid.update(State.values)
@@ -117,7 +118,7 @@ class MonitorService : Service() {
         val v = State.values
         val text = if (State.online()) {
             "~%.0f%% · %.1f V · навантаження %.0f W · мережа %.0f V".format(
-                v["must_battery_soc_estimate_percent"] ?: 0.0,
+                State.soc(v) ?: 0.0,
                 v["must_battery_voltage_volts"] ?: 0.0,
                 v["must_load_power_watts"] ?: 0.0,
                 v["must_grid_voltage_volts"] ?: 0.0,

@@ -10,6 +10,8 @@ import com.hoho.android.usbserial.driver.UsbSerialProber
 object Inverter {
     private const val ACTION_USB_PERMISSION = "ua.den.mustmonitor.USB_PERMISSION"
 
+    const val MAX_POWER_W = 15_000.0
+
     val lock = Any()
     private var port: UsbSerialPort? = null
     private var lastPermissionRequest = 0L
@@ -72,6 +74,12 @@ object Inverter {
                 State.chargerError = null
             } catch (e: ModbusException) {
                 State.chargerError = e.message
+            }
+
+            // Glitches around grid switchover: small negative load values, absurd spikes.
+            for (k in listOf("must_load_power_watts", "must_inverter_power_watts", "must_load_percent")) {
+                val x = out[k] ?: continue
+                out[k] = if (x > MAX_POWER_W) Double.NaN else x.coerceAtLeast(0.0)
             }
 
             out["must_battery_soc_estimate_percent"] =

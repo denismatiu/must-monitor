@@ -63,7 +63,7 @@ class GridWatcher(ctx: Context) {
     private fun message(on: Boolean, at: Long, prevSince: Long, v: Map<String, Double>): String {
         val time = SimpleDateFormat("HH:mm", Locale.ROOT).format(Date(at))
         val dur = if (prevSince > 0) duration(at - prevSince) else null
-        val soc = v["must_battery_soc_estimate_percent"] ?: 0.0
+        val soc = State.soc(v) ?: 0.0
         val bv = v["must_battery_voltage_volts"] ?: 0.0
         val load = v["must_load_power_watts"] ?: 0.0
         val battery = "🔋 ~%.0f%% · %.1f V".format(Locale.ROOT, soc, bv)
@@ -80,7 +80,7 @@ class GridWatcher(ctx: Context) {
                 append('\n').append(battery)
                 append("\n⚡ Навантаження %.0f W".format(Locale.ROOT, load))
                 if (load > 10) {
-                    val hours = soc / 100 * Registers.BATTERY_WH / load
+                    val hours = soc / 100 * State.batteryWh / load
                     append("\n⏳ Вистачить приблизно на ").append(duration((hours * 3600_000).toLong()))
                 }
             }

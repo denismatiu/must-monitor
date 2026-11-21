@@ -18,7 +18,6 @@ data class EnergyReg(val name: String, val help: String, val mwhAddr: Int)
 object Registers {
     const val SLAVE = 4
     const val BAUD = 19200
-    const val BATTERY_WH = 3200.0
     const val BATTERY_CELLS = 8
 
     const val INV_START = 25201
@@ -35,10 +34,10 @@ object Registers {
         Reg("must_inverter_current_amps", "Inverter current", 25210, 0.1),
         Reg("must_grid_current_amps", "Grid current", 25211, 0.1),
         Reg("must_load_current_amps", "Load current", 25212, 0.1),
-        Reg("must_inverter_power_watts", "Inverter power", 25213),
+        Reg("must_inverter_power_watts", "Inverter power", 25213, signed = true),
         Reg("must_grid_power_watts", "Grid power", 25214, signed = true),
-        Reg("must_load_power_watts", "Load power", 25215),
-        Reg("must_load_percent", "Load percent of rated power", 25216),
+        Reg("must_load_power_watts", "Load power", 25215, signed = true),
+        Reg("must_load_percent", "Load percent of rated power", 25216, signed = true),
         Reg("must_inverter_frequency_hertz", "Inverter frequency", 25225, 0.01),
         Reg("must_grid_frequency_hertz", "Grid frequency", 25226, 0.01),
         Reg("must_ac_radiator_temp_celsius", "AC radiator temperature", 25233),

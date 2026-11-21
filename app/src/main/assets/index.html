@@ -74,6 +74,7 @@
     <div id="state" class="chip">–</div>
   </div>
   <div class="bar"><div id="socbar" style="width:0"></div></div>
+  <div class="runtime" id="socsrc"></div>
   <div class="runtime" id="runtime">–</div>
   <div class="flow" id="flow"></div>
   <div class="gridline" id="gridline"></div>
@@ -97,6 +98,7 @@
       <span><i style="background:var(--load)"></i>Навантаження</span>
       <span><i style="background:rgba(78,161,255,.45)"></i>Пік</span>
       <span><i style="background:var(--pv)"></i>PV</span>
+      <span><i style="background:var(--grid)"></i>З мережі</span>
       <span><i style="background:var(--bat)"></i>Батарея (+заряд / −розряд)</span>
     </div>
   </div>
@@ -106,7 +108,7 @@
 <section class="chart">
   <div class="chart-head">
     <h2>Батарея, %</h2>
-    <div class="legend"><span><i style="background:var(--ok)"></i>Заряд (оцінка)</span></div>
+    <div class="legend"><span><i style="background:var(--ok)"></i>По енергії</span><span><i style="background:#8a90a0"></i>За напругою</span></div>
   </div>
   <canvas id="chSoc" class="short"></canvas>
 </section>
@@ -154,6 +156,15 @@
       </select>
     </label>
     <div class="hint" id="batHint"></div>
+    <label>Ємність батареї, Wh
+      <input type="text" id="batWh" inputmode="numeric" placeholder="3000">
+    </label>
+    <div class="btns">
+      <button id="btnBatSave">Зберегти ємність</button>
+      <button id="btnSocReset">Скинути лічильник заряду</button>
+    </div>
+    <div class="hint">Заряд «по енергії» рахує енергію, що зайшла в батарею і вийшла з неї. Він сам скидається на 100%, коли батарея постоїть повністю зарядженою ~5 хв. «Скинути» бере початкове значення з напруги.</div>
+    <div class="msg" id="batMsg"></div>
   </div>
 </details>
 
@@ -169,7 +180,7 @@ const CARDS = [
   ["must_load_power_watts", "Навантаження", "W", 0],
   ["must_load_percent", "Завантаження", "%", 0],
   ["must_grid_voltage_volts", "Мережа", "V", 1],
-  ["must_grid_power_watts", "Мережа", "W", 0],
+  ["must_grid_import_watts", "Мережа, споживання", "W", 0],
   ["must_pv_power_watts", "PV", "W", 0],
   ["must_pv_voltage_volts", "PV", "V", 1],
   ["must_pv_charger_current_amps", "PV заряд", "A", 1],
@@ -213,7 +224,11 @@ async function refresh() {
     $("status").className = "chip " + (s.online ? "ok" : "bad");
     $("state").textContent = STATES[s.workState] || s.workState || "–";
 
-    const soc = v.must_battery_soc_estimate_percent;
+    const socE = v.must_battery_soc_energy_percent, socV = v.must_battery_soc_estimate_percent;
+    const soc = socE != null ? socE : socV;
+    $("socsrc").textContent = socE != null
+      ? "по лічильнику енергії (" + (s.batteryWh / 1000).toFixed(1) + " kWh) · за напругою ~" + (socV != null ? Math.round(socV) : "–") + "%"
+      : "оцінка за напругою";
     $("soc").textContent = soc == null ? "–" : "~" + Math.round(soc) + "%";
     $("socbar").style.width = (soc || 0) + "%";
     $("socbar").style.background = soc < 20 ? "var(--bad)" : soc < 40 ? "var(--warn)" : "var(--ok)";
@@ -451,12 +466,14 @@ function renderHistory() {
       { i: iM, color: "rgba(78,161,255,.45)", label: "Пік", unit: "W", width: 1 },
       { i: iL, color: "#4ea1ff", fill: "rgba(78,161,255,.12)", label: "Навантаження", unit: "W" },
       { i: iP, color: "#f5c542", label: "PV", unit: "W" },
+      { i: ix("must_grid_import_watts"), color: "rgba(62,207,142,.8)", label: "З мережі", unit: "W", width: 1.2 },
       { i: HIST.rows.some(r => r[ix("must_battery_charge_power_watts")] != null) ? ix("must_battery_charge_power_watts") : ix("must_battery_power_watts"),
         color: "#b57cff", label: "Батарея (+заряд)", unit: "W" },
       { i: ix("must_battery_charge_current_amps"), color: "#b57cff", label: "Струм", unit: "A", dec: 1, hidden: true },
     ] },
     { el: $("chSoc"), rows, t0, t1, opt: { min: 0, max: 100, shade }, series: [
-      { i: ix("must_battery_soc_estimate_percent"), color: "#3ecf8e", fill: "rgba(62,207,142,.10)", label: "Заряд", unit: "%" },
+      { i: ix("must_battery_soc_estimate_percent"), color: "rgba(138,144,160,.7)", label: "За напругою", unit: "%", width: 1 },
+      { i: ix("must_battery_soc_energy_percent"), color: "#3ecf8e", fill: "rgba(62,207,142,.10)", label: "По енергії", unit: "%" },
       { i: ix("must_battery_voltage_volts"), color: "#3ecf8e", label: "Напруга", unit: "V", dec: 1, hidden: true },
     ] },
     { el: $("chGrid"), rows, t0, t1, opt: { zero: true, minSpan: 50, shade }, series: [
@@ -499,9 +516,10 @@ function applySettings(s) {
   $("tgToken").value = "";
   $("tgToken").placeholder = s.tokenSet ? "збережено (…" + s.tokenHint + "), залиште порожнім" : "123456789:AA…";
   $("batSign").value = String(s.batterySign || 0);
+  if (document.activeElement !== $("batWh")) $("batWh").value = s.batteryWh || "";
   $("batHint").textContent = s.batterySignLearned
     ? "Авто: визначено, що заряд = " + (s.batterySignLearned > 0 ? "плюс" : "мінус") + ". Якщо показує навпаки — оберіть вручну."
-    : "Авто: визначиться при першому відключенні світла без сонця (батарея тоді точно розряджається). Або оберіть вручну, порівнявши з дисплеєм інвертора.";
+    : "Авто: поки що вважається, що мінус = заряд (так на HBP18). Уточниться при першому відключенні світла без сонця.";
   if (s.lastError) tgMsg("Остання помилка: " + s.lastError, "err");
   else if (s.lastSent) tgMsg("Останнє повідомлення надіслано " + dayHm(s.lastSent / 1000), "ok");
 }
@@ -520,6 +538,15 @@ $("btnSave").onclick = async () => {
 };
 $("batSign").onchange = async () => {
   try { applySettings(await post("/api/settings", { batterySign: $("batSign").value })); refresh(); } catch (e) { tgMsg(e.message, "err"); }
+};
+function batMsg(text, cls) { $("batMsg").textContent = text; $("batMsg").className = "msg " + (cls || ""); }
+$("btnBatSave").onclick = async () => {
+  try { applySettings(await post("/api/settings", { batteryWh: $("batWh").value.trim() })); batMsg("Збережено", "ok"); refresh(); }
+  catch (e) { batMsg(e.message, "err"); }
+};
+$("btnSocReset").onclick = async () => {
+  try { await post("/api/settings", { socReset: "1" }); batMsg("Скинуто, нове значення з'явиться за кілька секунд", "ok"); setTimeout(refresh, 6000); }
+  catch (e) { batMsg(e.message, "err"); }
 };
 $("btnTest").onclick = async () => {
   tgMsg("Надсилаю…");

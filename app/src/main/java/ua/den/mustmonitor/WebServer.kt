@@ -52,6 +52,7 @@ class WebServer(private val ctx: Context, private val settings: Settings, port: 
             .put("lastSent", Telegram.lastSent)
             .put("batterySign", settings.batterySignManual)
             .put("batterySignLearned", settings.batterySignLearned)
+            .put("batteryWh", settings.batteryWh)
             .toString()
     }
 
@@ -67,6 +68,11 @@ class WebServer(private val ctx: Context, private val settings: Settings, port: 
         f["chatId"]?.let { settings.tgChatId = it }
         f["enabled"]?.let { settings.tgEnabled = it == "1" }
         f["batterySign"]?.toIntOrNull()?.let { if (it in -1..1) settings.batterySignManual = it }
+        f["batteryWh"]?.toIntOrNull()?.let {
+            if (it !in 100..100_000) return jsonError(Response.Status.BAD_REQUEST, "ємність має бути 100–100000 Wh")
+            settings.batteryWh = it
+        }
+        if (f["socReset"] == "1") Battery.reset(settings)
         return json(settingsJson())
     }
 
@@ -163,7 +169,7 @@ class WebServer(private val ctx: Context, private val settings: Settings, port: 
         o.put("lastError", State.lastError ?: JSONObject.NULL)
         o.put("chargerError", State.chargerError ?: JSONObject.NULL)
         o.put("device", State.device ?: JSONObject.NULL)
-        o.put("batteryWh", Registers.BATTERY_WH)
+        o.put("batteryWh", settings.batteryWh)
         o.put("gridOn", State.gridOn ?: JSONObject.NULL)
         o.put("gridSince", State.gridSince)
         val ws = State.values["must_work_state"]?.toInt()

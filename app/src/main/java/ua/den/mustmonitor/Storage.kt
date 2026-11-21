@@ -21,13 +21,18 @@ class HistoryStore(dir: File) {
             val cols = lines[0].split(',')
             needsRewrite = lines[0] != header
             val idx = State.historyKeys.map { cols.indexOf(it) }
+            val isLoad = State.historyKeys.map { it.startsWith("must_load_power") }
             val cutoff = (System.currentTimeMillis() - State.HISTORY_RETENTION_MS) / 1000.0
             lines.drop(1).mapNotNull { line ->
                 val p = line.split(',')
                 val ts = p[0].toDoubleOrNull() ?: return@mapNotNull null
                 if (ts < cutoff || p.size != cols.size) return@mapNotNull null
                 DoubleArray(idx.size + 1) { i ->
-                    if (i == 0) ts else idx[i - 1].let { j -> if (j < 0) Double.NaN else p[j].toDoubleOrNull() ?: Double.NaN }
+                    if (i == 0) ts else idx[i - 1].let { j ->
+                        val x = if (j < 0) Double.NaN else p[j].toDoubleOrNull() ?: Double.NaN
+                        // drop points polluted by the old unsigned-load glitch (65485 W)
+                        if (isLoad[i - 1] && x > 10_000) Double.NaN else x
+                    }
                 }
             }
         } catch (_: Exception) {

@@ -19,12 +19,16 @@ jobs:
           distribution: temurin
           java-version: "17"
 
+      # setup-gradle installs and caches Gradle itself (with retries), instead of the
+      # wrapper fetching services.gradle.org on every run, which can fail with 403.
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.11.1"
 
       - name: Build APK
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
-          ./gradlew :app:assembleDebug --no-daemon \
+          gradle :app:assembleDebug --no-daemon \
             -PappVersionName="$VERSION" \
             -PappVersionCode="${{ github.run_number }}"
           mv app/build/outputs/apk/debug/app-debug.apk "must-monitor-${GITHUB_REF_NAME}.apk"

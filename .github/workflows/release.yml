@@ -1,0 +1,41 @@
+name: release-apk
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Build APK
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          ./gradlew :app:assembleDebug --no-daemon \
+            -PappVersionName="$VERSION" \
+            -PappVersionCode="${{ github.run_number }}"
+          mv app/build/outputs/apk/debug/app-debug.apk "must-monitor-${GITHUB_REF_NAME}.apk"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: must-monitor-apk
+          path: must-monitor-*.apk
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: must-monitor-*.apk
+          generate_release_notes: true

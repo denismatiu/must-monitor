@@ -121,7 +121,7 @@ Pushing a `v*` tag builds the APK on GitHub Actions and attaches it to a GitHub 
 git tag v0.2.0 && git push origin v0.2.0
 ```
 
-The workflow can also be started manually from the Actions tab. In that case the APK is only uploaded as a build artifact.
+The version name comes from the tag (`v0.2.0` → `0.2.0`) and the version code from the workflow run number, so versions always go up. Note that CI currently signs with a fresh debug key on every run, so one CI release can't be installed over another without uninstalling first (see Signing below).
 
 > **Signing:** Android only installs an update over an existing app if both are signed with the same key. Debug builds from CI and from your machine use different keys. To switch between them, uninstall first, which deletes settings and history.
 

@@ -81,6 +81,7 @@ object Registers {
     )
 
     fun socEstimate(batteryVolts: Double): Double {
+        if (batteryVolts.isNaN()) return Double.NaN
         val cell = batteryVolts / BATTERY_CELLS
         if (cell <= socCurve.first().first) return 0.0
         if (cell >= socCurve.last().first) return 100.0

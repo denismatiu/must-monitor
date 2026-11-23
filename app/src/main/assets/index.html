@@ -3,89 +3,125 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#0f1115">
 <title>Must Monitor</title>
 <style>
-  :root { --bg:#0f1115; --card:#181b22; --line:#262a33; --fg:#e6e8ee; --dim:#8a90a0; --ok:#3ecf8e; --warn:#f5a524; --bad:#f31260; --pv:#f5c542; --load:#4ea1ff; --bat:#b57cff; --grid:#3ecf8e; }
+  :root { --bg:#0f1115; --card:#181b22; --line:#262a33; --fg:#e6e8ee; --dim:#8a90a0; --ok:#3ecf8e; --warn:#f5a524; --bad:#f31260; --pv:#f5c542; --load:#4ea1ff; --bat:#b57cff; --grid:#2dd4bf; --focus:#4ea1ff; }
   * { box-sizing: border-box; }
   body { margin:0; font-family: system-ui, -apple-system, sans-serif; background:var(--bg); color:var(--fg); }
-  header { display:flex; align-items:center; justify-content:space-between; padding:14px 16px; }
+  @media (min-width: 1200px) { body { padding:0 24px; font-size:17px; } }
+  button:focus-visible, summary:focus-visible, input:focus-visible, select:focus-visible, canvas:focus-visible { outline:2px solid var(--focus); outline-offset:2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition:none !important; } }
+  header { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:14px 16px; flex-wrap:wrap; }
   h1 { font-size:18px; margin:0; }
   h2 { font-size:15px; margin:0; font-weight:600; }
-  .chip { padding:4px 10px; border-radius:999px; font-size:13px; background:var(--card); }
-  .chip.ok { color:var(--ok); } .chip.bad { color:var(--bad); }
-  .hero { margin:0 16px 12px; padding:16px; background:var(--card); border-radius:14px; }
-  .hero .row { display:flex; justify-content:space-between; align-items:baseline; }
-  .soc { font-size:44px; font-weight:700; }
-  .bar { height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:10px 0 8px; }
-  .bar > div { height:100%; background:var(--ok); transition:width .4s; }
-  .runtime { color:var(--dim); font-size:14px; }
-  .flow { margin-top:8px; font-size:15px; font-weight:500; }
+  .hdr-right { display:flex; gap:6px; align-items:center; flex-wrap:wrap; justify-content:flex-end; }
+  .chip { padding:5px 10px; border-radius:999px; font-size:13px; background:var(--card); white-space:nowrap; }
+  .chip.ok { color:var(--ok); } .chip.bad { color:var(--bad); } .chip.warn { color:var(--warn); }
+  .hero { margin:0 16px 12px; padding:16px; background:var(--card); border-radius:14px; transition:opacity .3s; }
+  .hero.stale { opacity:.55; }
+  .hero .row { display:flex; justify-content:space-between; align-items:baseline; gap:8px; }
+  .soc { font-size:44px; font-weight:700; font-variant-numeric: tabular-nums; }
+  .bar { height:10px; background:var(--line); border-radius:6px; overflow:hidden; margin:10px 0 10px; }
+  .bar > div { height:100%; background:var(--line); transition:width .4s; }
+  .runtime { font-size:19px; font-weight:600; }
+  .flow { margin-top:6px; font-size:15px; font-weight:500; }
   .flow.chg { color:var(--ok); } .flow.dis { color:var(--warn); }
   .gridline { margin-top:6px; font-size:14px; }
   .gridline.on { color:var(--ok); } .gridline.off { color:var(--bad); }
+  .sub { color:var(--dim); font-size:12px; margin-top:8px; line-height:1.4; }
+  .alert { margin-top:10px; padding:8px 10px; border-radius:8px; background:rgba(243,18,96,.12); color:#ff8fb0; font-size:13px; }
+  .alert:empty { display:none; }
   .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(150px, 1fr)); gap:10px; margin:0 16px; }
   .card { background:var(--card); border-radius:12px; padding:12px; }
   .card .k { color:var(--dim); font-size:12px; }
   .card .v { font-size:22px; font-weight:600; margin-top:4px; font-variant-numeric: tabular-nums; }
+  .card .v.na { font-size:14px; font-weight:500; color:var(--dim); padding-top:6px; }
+  .card .s { color:var(--dim); font-size:11px; margin-top:2px; }
+  details.more { margin:10px 16px 0; background:none; padding:0; }
+  details.more > summary { color:var(--dim); font-size:14px; font-weight:500; padding:10px 0; min-height:44px; }
+  details.more .grid { margin:0; }
   .section-head { display:flex; justify-content:space-between; align-items:center; margin:20px 16px 10px; gap:10px; }
   .tabs { display:flex; background:var(--card); border-radius:999px; padding:3px; }
-  .tabs button { background:none; border:0; color:var(--dim); padding:5px 12px; border-radius:999px; font:inherit; font-size:13px; cursor:pointer; }
-  .tabs button.on { background:var(--line); color:var(--fg); }
-  .stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(130px, 1fr)); gap:10px; margin:0 16px; }
+  .tabs button { background:none; border:0; color:var(--dim); min-height:40px; padding:0 16px; border-radius:999px; font:inherit; font-size:14px; cursor:pointer; }
+  .tabs button[aria-pressed="true"] { background:var(--line); color:var(--fg); }
+  .stats { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; margin:0 16px; }
   .stats .v { font-size:18px; }
   .chart { margin:10px 16px; background:var(--card); border-radius:12px; padding:12px; }
   .chart-head { display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px; margin-bottom:6px; }
   .legend { display:flex; flex-wrap:wrap; gap:12px; font-size:12px; color:var(--dim); }
-  .legend i { display:inline-block; width:10px; height:3px; margin-right:5px; vertical-align:middle; border-radius:2px; }
+  .legend i { display:inline-block; width:12px; height:3px; margin-right:5px; vertical-align:middle; border-radius:2px; }
+  .legend i.dash { background:repeating-linear-gradient(90deg, currentColor 0 4px, transparent 4px 7px) !important; }
   canvas { width:100%; height:200px; display:block; touch-action:pan-y; }
   canvas.short { height:140px; }
+  canvas.thin { height:100px; }
+  .chart-msg { color:var(--dim); font-size:13px; }
+  .chart-msg:empty { display:none; }
   .outages { list-style:none; margin:0; padding:0; font-size:14px; }
-  .outages li { display:flex; justify-content:space-between; padding:8px 0; border-top:1px solid var(--line); }
+  .outages li { display:flex; justify-content:space-between; gap:8px; padding:10px 0; border-top:1px solid var(--line); }
   .outages li:first-child { border-top:0; }
-  .outages .d { color:var(--dim); font-variant-numeric: tabular-nums; }
+  .outages .d { color:var(--dim); font-variant-numeric: tabular-nums; white-space:nowrap; }
   .empty { color:var(--dim); font-size:14px; }
-  details { margin:20px 16px; background:var(--card); border-radius:12px; padding:12px; }
-  summary { cursor:pointer; font-weight:600; font-size:15px; }
-  .form { display:grid; gap:10px; margin-top:12px; }
+  details.settings { margin:20px 16px; background:var(--card); border-radius:12px; padding:0 12px; }
+  details.settings > summary { cursor:pointer; font-weight:600; font-size:15px; padding:12px 0; min-height:44px; }
+  .form { display:grid; gap:12px; padding-bottom:14px; }
+  .form h3 { font-size:14px; margin:10px 0 0; color:var(--fg); }
   .form label { display:grid; gap:4px; font-size:12px; color:var(--dim); }
-  .form input[type=text], .form input[type=password] { background:var(--bg); border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:9px 10px; font:inherit; font-size:14px; width:100%; }
-  .form select { background:var(--bg); border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:9px 10px; font:inherit; font-size:14px; }
-  .form .check { display:flex; align-items:center; gap:8px; font-size:14px; color:var(--fg); }
+  .form input[type=text], .form input[type=password], .form select { background:var(--bg); border:1px solid var(--line); color:var(--fg); border-radius:8px; padding:10px; font:inherit; font-size:15px; width:100%; min-height:44px; }
+  .form .check { display:flex; align-items:center; gap:10px; font-size:14px; color:var(--fg); min-height:44px; }
+  .form .check input { width:22px; height:22px; }
   .btns { display:flex; flex-wrap:wrap; gap:8px; }
-  .btns button, .chat-pick button { background:var(--line); color:var(--fg); border:0; border-radius:8px; padding:9px 14px; font:inherit; font-size:14px; cursor:pointer; }
+  .btns button, .chat-pick button { background:var(--line); color:var(--fg); border:0; border-radius:8px; min-height:44px; padding:0 16px; font:inherit; font-size:14px; cursor:pointer; }
   .btns button.primary { background:var(--load); color:#071222; font-weight:600; }
+  .btns button.danger { background:none; border:1px solid #5a2433; color:#ff8fb0; }
+  .btns button:disabled { opacity:.55; cursor:default; }
   .hint { font-size:12px; color:var(--dim); line-height:1.5; }
   .msg { font-size:13px; min-height:1em; }
   .msg.err { color:var(--bad); } .msg.ok { color:var(--ok); }
   .chat-pick { display:flex; flex-wrap:wrap; gap:6px; }
-  footer { color:var(--dim); font-size:12px; padding:8px 16px 20px; }
+  hr { border:0; border-top:1px solid var(--line); margin:6px 0; }
+  footer { color:var(--dim); font-size:12px; padding:8px 16px 20px; line-height:1.6; }
   footer a { color:var(--dim); }
+  .btns a.btn, .btns label.btn { display:inline-flex; align-items:center; background:var(--line); color:var(--fg); border-radius:8px; min-height:44px; padding:0 16px; font-size:14px; text-decoration:none; cursor:pointer; }
+  .notice { padding:10px 12px; border-radius:8px; background:rgba(78,161,255,.12); color:#9cc8ff; font-size:13px; line-height:1.5; }
+  .notice:empty { display:none; }
+  .lang { background:var(--card); color:var(--fg); border:0; border-radius:999px; min-height:32px; padding:0 12px; font:inherit; font-size:13px; cursor:pointer; }
 </style>
 </head>
 <body>
 <header>
-  <h1>Must HBP18</h1>
-  <span id="status" class="chip">…</span>
+  <h1>Must Monitor</h1>
+  <div class="hdr-right">
+    <span id="phone" class="chip" hidden></span>
+    <span id="status" class="chip" role="status">…</span>
+    <button class="lang" id="langBtn" aria-label="Language / Мова">EN</button>
+  </div>
 </header>
 
-<section class="hero">
+<section class="hero" id="hero">
   <div class="row">
     <div class="soc" id="soc">–</div>
     <div id="state" class="chip">–</div>
   </div>
   <div class="bar"><div id="socbar" style="width:0"></div></div>
-  <div class="runtime" id="socsrc"></div>
   <div class="runtime" id="runtime">–</div>
   <div class="flow" id="flow"></div>
   <div class="gridline" id="gridline"></div>
+  <div class="sub" id="socsrc"></div>
+  <div class="alert" id="alert"></div>
 </section>
 
 <section class="grid" id="cards"></section>
+<details class="more">
+  <summary data-i18n="details"></summary>
+  <section class="grid" id="cards2"></section>
+</details>
 
 <div class="section-head">
-  <h2>Історія</h2>
-  <div class="tabs" id="tabs">
-    <button data-h="1">1 год</button><button data-h="6">6 год</button><button data-h="24">24 год</button>
+  <h2 data-i18n="history"></h2>
+  <div class="tabs" id="tabs" role="group" data-i18n-aria="period">
+    <button data-h="1" aria-pressed="false"></button><button data-h="6" aria-pressed="false"></button><button data-h="24" aria-pressed="false"></button>
   </div>
 </div>
 
@@ -93,198 +129,410 @@
 
 <section class="chart">
   <div class="chart-head">
-    <h2>Потужність, W</h2>
+    <h2 data-i18n="chPower"></h2>
     <div class="legend">
-      <span><i style="background:var(--load)"></i>Навантаження</span>
-      <span><i style="background:rgba(78,161,255,.45)"></i>Пік</span>
+      <span><i style="background:var(--load)"></i><span data-i18n="load"></span></span>
+      <span style="color:rgba(78,161,255,.7)"><i class="dash"></i><span data-i18n="peak"></span></span>
       <span><i style="background:var(--pv)"></i>PV</span>
-      <span><i style="background:var(--grid)"></i>З мережі</span>
-      <span><i style="background:var(--bat)"></i>Батарея (+заряд / −розряд)</span>
+      <span><i style="background:var(--grid)"></i><span data-i18n="fromGrid"></span></span>
+      <span><i style="background:var(--bat)"></i><span data-i18n="batteryLegend"></span></span>
     </div>
   </div>
-  <canvas id="chPower"></canvas>
+  <div class="chart-msg" id="histMsg"></div>
+  <canvas id="chPower" tabindex="0" data-i18n-aria="chPower"></canvas>
 </section>
 
 <section class="chart">
   <div class="chart-head">
-    <h2>Батарея, %</h2>
-    <div class="legend"><span><i style="background:var(--ok)"></i>По енергії</span><span><i style="background:#8a90a0"></i>За напругою</span></div>
+    <h2 data-i18n="chSoc"></h2>
+    <div class="legend"><span><i style="background:var(--ok)"></i><span data-i18n="byEnergy"></span></span><span style="color:#8a90a0"><i class="dash"></i><span data-i18n="byVoltage"></span></span></div>
   </div>
-  <canvas id="chSoc" class="short"></canvas>
+  <canvas id="chSoc" class="short" tabindex="0" data-i18n-aria="chSoc"></canvas>
 </section>
 
 <section class="chart">
   <div class="chart-head">
-    <h2>Мережа, V</h2>
-    <div class="legend"><span><i style="background:var(--grid)"></i>Напруга</span><span><i style="background:rgba(243,18,96,.5)"></i>Немає світла</span></div>
+    <h2 data-i18n="chGrid"></h2>
+    <div class="legend"><span><i style="background:var(--grid)"></i><span data-i18n="voltage"></span></span><span><i style="background:rgba(243,18,96,.5)"></i><span data-i18n="noGrid"></span></span></div>
   </div>
-  <canvas id="chGrid" class="short"></canvas>
+  <canvas id="chGrid" class="thin" tabindex="0" data-i18n-aria="chGrid"></canvas>
 </section>
 
 <section class="chart">
-  <div class="chart-head"><h2>Відключення</h2></div>
+  <div class="chart-head"><h2 data-i18n="outages"></h2></div>
   <ul class="outages" id="outages"></ul>
 </section>
 
-<details id="settings">
-  <summary>Налаштування</summary>
+<details class="settings" id="settings">
+  <summary data-i18n="settings"></summary>
   <div class="form">
-    <div class="hint">
-      1. Створіть бота в <b>@BotFather</b> (/newbot) і вставте токен.<br>
-      2. Напишіть боту будь-що (або додайте його в групу) і натисніть «Знайти chat id».<br>
-      3. Збережіть і надішліть тест. Повідомлення приходять, коли світло зникає і з'являється.
-    </div>
-    <label>Токен бота
+    <div class="notice" id="reinstallHint"></div>
+    <h3>Telegram</h3>
+    <div class="hint" data-i18n-html="tgSteps"></div>
+    <label><span data-i18n="botToken"></span>
       <input type="password" id="tgToken" autocomplete="off" spellcheck="false">
     </label>
     <label>Chat id
-      <input type="text" id="tgChat" autocomplete="off" spellcheck="false" placeholder="напр. 123456789 або -100…">
+      <input type="text" id="tgChat" autocomplete="off" spellcheck="false" data-i18n-ph="chatPh">
     </label>
     <div class="chat-pick" id="chatPick"></div>
-    <label class="check"><input type="checkbox" id="tgEnabled"> Надсилати сповіщення</label>
+    <label><span data-i18n="tgLang"></span>
+      <select id="tgLang"><option value="uk">Українська</option><option value="en">English</option></select>
+    </label>
+    <label class="check"><input type="checkbox" id="tgEnabled"> <span data-i18n="tgEnabled"></span></label>
+    <label class="check"><input type="checkbox" id="invAlert"> <span data-i18n="invAlert"></span></label>
+    <label class="check"><input type="checkbox" id="phoneAlert"> <span data-i18n="phoneAlert"></span></label>
+    <label><span data-i18n="phonePct"></span>
+      <input type="text" id="phonePct" inputmode="numeric" placeholder="10">
+    </label>
     <div class="btns">
-      <button class="primary" id="btnSave">Зберегти</button>
-      <button id="btnDetect">Знайти chat id</button>
-      <button id="btnTest">Тест</button>
+      <button class="primary" id="btnSave" data-i18n="save"></button>
+      <button id="btnDetect" data-i18n="detect"></button>
+      <button id="btnTest" data-i18n="test"></button>
     </div>
-    <div class="msg" id="tgMsg"></div>
-    <label>Напрям струму батареї
+    <div class="msg" id="tgMsg" aria-live="polite"></div>
+
+    <hr>
+    <h3 data-i18n="battery"></h3>
+    <label><span data-i18n="capacity"></span>
+      <input type="text" id="batWh" inputmode="numeric" placeholder="3000">
+    </label>
+    <label><span data-i18n="fullV"></span>
+      <input type="text" id="batFullV" inputmode="decimal" placeholder="27.0">
+    </label>
+    <div class="hint" data-i18n="fullVHint"></div>
+    <label><span data-i18n="sign"></span>
       <select id="batSign">
-        <option value="0">Авто</option>
-        <option value="1">плюс = заряд</option>
-        <option value="-1">мінус = заряд</option>
+        <option value="0" data-i18n="signAuto"></option>
+        <option value="1" data-i18n="signPlus"></option>
+        <option value="-1" data-i18n="signMinus"></option>
       </select>
     </label>
     <div class="hint" id="batHint"></div>
-    <label>Ємність батареї, Wh
-      <input type="text" id="batWh" inputmode="numeric" placeholder="3000">
-    </label>
     <div class="btns">
-      <button id="btnBatSave">Зберегти ємність</button>
-      <button id="btnSocReset">Скинути лічильник заряду</button>
+      <button class="primary" id="btnBatSave" data-i18n="save"></button>
     </div>
-    <div class="hint">Заряд «по енергії» рахує енергію, що зайшла в батарею і вийшла з неї. Він сам скидається на 100%, коли батарея постоїть повністю зарядженою ~5 хв. «Скинути» бере початкове значення з напруги.</div>
-    <div class="msg" id="batMsg"></div>
+    <div class="msg" id="batMsg" aria-live="polite"></div>
+    <div class="hint" data-i18n="socHint"></div>
+    <div class="btns">
+      <button class="danger" id="btnSocReset" data-i18n="socReset"></button>
+    </div>
+
+    <hr>
+    <h3 data-i18n="backup"></h3>
+    <div class="hint" id="backupHint"></div>
+    <div class="btns">
+      <a class="btn" href="/api/backup" download data-i18n="backupDl"></a>
+      <label class="btn"><span data-i18n="backupRestore"></span><input type="file" id="restoreFile" accept=".json,application/json" hidden></label>
+    </div>
+    <div class="msg" id="bakMsg" aria-live="polite"></div>
   </div>
 </details>
 
 <footer>
-  <span id="meta"></span> · <a href="/metrics">/metrics</a> · <a href="/api/state">/api/state</a> · <a href="/api/history">/api/history</a>
+  <span id="meta"></span><br>
+  <a href="/metrics">/metrics</a> · <a href="/api/state">/api/state</a> · <a href="/api/history">/api/history</a>
 </footer>
 
 <script>
-const CARDS = [
-  ["must_battery_voltage_volts", "Батарея", "V", 1],
-  ["bat_flow_w", "Заряд(+)/розряд(−)", "W", 0],
-  ["bat_flow_a", "Струм батареї", "A", 1],
-  ["must_load_power_watts", "Навантаження", "W", 0],
-  ["must_load_percent", "Завантаження", "%", 0],
-  ["must_grid_voltage_volts", "Мережа", "V", 1],
-  ["must_grid_import_watts", "Мережа, споживання", "W", 0],
-  ["must_pv_power_watts", "PV", "W", 0],
-  ["must_pv_voltage_volts", "PV", "V", 1],
-  ["must_pv_charger_current_amps", "PV заряд", "A", 1],
-  ["must_inverter_voltage_volts", "Вихід", "V", 1],
-  ["must_inverter_frequency_hertz", "Вихід", "Hz", 2],
-  ["must_dc_radiator_temp_celsius", "DC радіатор", "°C", 0],
-  ["must_transformer_temp_celsius", "Трансформатор", "°C", 0],
-];
-const STATES = { PowerOn:"Старт", SelfTest:"Самотест", OffGrid:"Від батареї", GridTie:"Від мережі", Bypass:"Байпас", Stop:"Стоп", GridCharging:"Заряд від мережі" };
-const GAP_S = 95; // break lines when points are further apart (history step is 30 s)
-const $ = id => document.getElementById(id);
-const getJson = async url => { const r = await fetch(url, { cache: "no-store" }); if (!r.ok) throw new Error(r.status); return r.json(); };
+// ---------- i18n ----------
+const I18N = {
+  uk: {
+    details: "Деталі", history: "Історія", period: "Період", h1: "1 год", h6: "6 год", h24: "24 год",
+    chPower: "Потужність, W", chSoc: "Батарея, %", chGrid: "Мережа, V", outages: "Відключення", settings: "Налаштування",
+    load: "Навантаження", peak: "Пік", fromGrid: "З мережі", batteryLegend: "Батарея (+заряд / −розряд)", batteryCharge: "Батарея (+заряд)",
+    batteryCurrent: "Струм батареї", byEnergy: "По енергії", byVoltage: "За напругою", voltage: "Напруга", grid: "Мережа", noGrid: "Немає світла",
+    tgSteps: "1. Створіть бота в <b>@BotFather</b> (/newbot) і вставте токен.<br>2. Напишіть боту будь-що (або додайте його в групу) і натисніть «Знайти chat id».<br>3. Збережіть і надішліть тест.",
+    botToken: "Токен бота", chatPh: "напр. 123456789 або -100…", tgLang: "Мова повідомлень", tgEnabled: "Надсилати сповіщення",
+    invAlert: "Коли інвертор не відповідає 3+ хв", phoneAlert: "Коли батарея цього телефона сідає", phonePct: "Поріг батареї телефона, %",
+    save: "Зберегти", detect: "Знайти chat id", test: "Тест", battery: "Батарея", capacity: "Ємність, Wh", fullV: "Напруга «повного» заряду, V",
+    fullVHint: "Коли батарея ~5 хв тримає цю напругу і майже не бере струм, лічильник заряду скидається на 100%. Має бути трохи нижче напруги float у налаштуваннях інвертора.",
+    sign: "Напрям струму батареї", signAuto: "Авто", signPlus: "плюс = заряд", signMinus: "мінус = заряд",
+    socHint: "Заряд «по енергії» рахує енергію, що зайшла в батарею і вийшла з неї. Прогноз автономності лишає запас 10% і рахується від середньої потужності розряду за 10 хв (вона більша за навантаження, бо інвертор теж споживає).",
+    socReset: "Скинути лічильник заряду…",
+    // cards
+    c_load: "Навантаження", c_flow: "Батарея, заряд(+)/розряд(−)", c_current: "Струм батареї", c_bv: "Напруга батареї", c_gridV: "Мережа, напруга",
+    c_gridImp: "Споживання з мережі", c_pv: "PV потужність", c_loadPct: "Завантаження", c_pvV: "PV напруга", c_pvA: "PV струм заряду",
+    c_outV: "Вихід, напруга", c_outHz: "Вихід, частота", c_invW: "Потужність інвертора", c_ac: "AC радіатор", c_dc: "DC радіатор", c_tr: "Трансформатор",
+    // states
+    PowerOn: "Старт", SelfTest: "Самотест", OffGrid: "Від батареї", GridTie: "Від мережі", Bypass: "Байпас", Stop: "Стоп", GridCharging: "Заряд від мережі",
+    // dynamic
+    d: "д", h: "год", min: "хв", ago: "{0} тому", secAgo: "{0} с тому",
+    days: ["нд", "пн", "вт", "ср", "чт", "пт", "сб"],
+    connecting: "підключення…", noPhone: "немає зв'язку з телефоном", online: "на зв'язку", updating: "оновлення…", invSilent: "інвертор не відповідає",
+    socEnergy: "Заряд по лічильнику енергії ({0} kWh) · за напругою ~{1}%", socVoltage: "Заряд оцінено за напругою",
+    runtime: "Вистачить приблизно на {0}", ttf: "До повного ≈ {0}", onGrid: "Живлення від мережі",
+    gridOnFor: "Світло є вже {0} (з {1})", gridOffFor: "Світла немає вже {0} (з {1})", stale: " · дані застарілі",
+    idle: "Батарея в режимі очікування", charging: "⚡ Заряджається ", discharging: "▼ Розряджається ",
+    unmeasured: "не вимірюється", unmeasuredSub: "інвертор не повідомив навантаження", unmeasuredTip: "не вимірюється",
+    errLast: "Помилка: {0}", errStartup: "Не запустилось ({0}): {1}", clockApprox: "Годинник пристрою ще не синхронізовано — час приблизний.",
+    pvError: "PV-контролер не відповідає: {0}", phoneCharging: "Телефон заряджається", phoneNotCharging: "Телефон НЕ заряджається",
+    noUsb: "немає USB-пристрою", lastRead: " · останнє читання {0}",
+    noDataPeriod: "За цей період даних немає", collecting: "Історія збирається (точка раз на 30 с)…", noData: "немає даних",
+    now: "зараз", unsure: "(точно невідомо: був пропуск даних)", noOutages: "За обраний період відключень не було",
+    measured: "виміряно {0}", sAvgLoad: "Сер. навантаження", sPeak: "Пік навантаження", sUsed: "Спожито", sOutages: "Відключень", sOff: "Без світла",
+    histErr: "Історія недоступна ({0}), повтор…",
+    tokenSaved: "збережено (…{0}), залиште порожнім",
+    signLearned: "Авто: визначено, що заряд = {0}. Якщо показує навпаки — оберіть вручну.", plus: "плюс", minus: "мінус",
+    signDefault: "Авто: поки що вважається, що мінус = заряд (так на HBP18). Уточниться при першому відключенні світла без сонця.",
+    tgLastErr: "Остання помилка: {0}", tgLastSent: "Останнє повідомлення надіслано {0}", pctErr: "Поріг батареї телефона: 1–90%", saved: "Збережено",
+    whErr: "Ємність: 100–100000 Wh (напр. 3000 для 3 kWh)", fvErr: "Напруга повного заряду: 10–70 V",
+    resetConfirm: "Скинути лічильник заряду? Нове значення візьметься з напруги батареї (точне лише в спокої).", resetDone: "Скинуто, нове значення з'явиться за кілька секунд",
+    sending: "Надсилаю…", sent: "Надіслано, перевірте Telegram", searching: "Шукаю…", notFound: "Нічого не знайдено. Напишіть боту повідомлення і спробуйте ще раз.",
+    found: "Знайдено: {0}. Натисніть «Зберегти».", pickChat: "Оберіть чат:", picked: "Обрано. Натисніть «Зберегти».",
+    backup: "Резервна копія", backupDl: "Завантажити копію", backupRestore: "Відновити з файлу…",
+    backupHint: "Копія налаштувань (разом з токеном Telegram), лічильника заряду, історії й відключень автоматично зберігається щогодини в Download/MustMonitor/must-monitor-backup.json на цьому пристрої — ця папка не видаляється разом із застосунком. Файл містить токен бота, не публікуйте його.",
+    backupLast: "Остання автокопія: {0}.", backupNone: "Автокопія ще не створювалась (перша — за ~2 хв після запуску).", backupErr: "Помилка автокопії: {0}",
+    reinstallHint: "Застосунок щойно встановлено? Якщо раніше він уже працював, відновіть налаштування й історію з резервної копії внизу (файл у Download/MustMonitor на телефоні).",
+    restoring: "Відновлюю…", restored: "Відновлено: {0} записів історії, {1} подій. Налаштування застосовано.", restoreConfirm: "Відновити з файлу {0}? Налаштування буде замінено, історію — доповнено.",
+  },
+  en: {
+    details: "Details", history: "History", period: "Period", h1: "1 h", h6: "6 h", h24: "24 h",
+    chPower: "Power, W", chSoc: "Battery, %", chGrid: "Grid, V", outages: "Outages", settings: "Settings",
+    load: "Load", peak: "Peak", fromGrid: "From grid", batteryLegend: "Battery (+charge / −discharge)", batteryCharge: "Battery (+charge)",
+    batteryCurrent: "Battery current", byEnergy: "By energy", byVoltage: "By voltage", voltage: "Voltage", grid: "Grid", noGrid: "Grid off",
+    tgSteps: "1. Create a bot with <b>@BotFather</b> (/newbot) and paste its token.<br>2. Send the bot any message (or add it to a group) and press “Find chat id”.<br>3. Save and send a test.",
+    botToken: "Bot token", chatPh: "e.g. 123456789 or -100…", tgLang: "Message language", tgEnabled: "Send notifications",
+    invAlert: "When the inverter is silent for 3+ min", phoneAlert: "When this phone's battery is low", phonePct: "Phone battery threshold, %",
+    save: "Save", detect: "Find chat id", test: "Test", battery: "Battery", capacity: "Capacity, Wh", fullV: "“Full” charge voltage, V",
+    fullVHint: "When the battery holds this voltage for ~5 min with almost no current, the charge counter is reset to 100%. Set it a bit below the float voltage in your inverter settings.",
+    sign: "Battery current direction", signAuto: "Auto", signPlus: "plus = charging", signMinus: "minus = charging",
+    socHint: "Charge “by energy” counts the energy going into and out of the battery. The runtime estimate keeps a 10% reserve and uses the average discharge power over 10 min (higher than the load, because the inverter consumes power too).",
+    socReset: "Reset charge counter…",
+    c_load: "Load", c_flow: "Battery, charge(+)/discharge(−)", c_current: "Battery current", c_bv: "Battery voltage", c_gridV: "Grid voltage",
+    c_gridImp: "Taken from grid", c_pv: "PV power", c_loadPct: "Load", c_pvV: "PV voltage", c_pvA: "PV charge current",
+    c_outV: "Output voltage", c_outHz: "Output frequency", c_invW: "Inverter power", c_ac: "AC heatsink", c_dc: "DC heatsink", c_tr: "Transformer",
+    PowerOn: "Power on", SelfTest: "Self test", OffGrid: "On battery", GridTie: "On grid", Bypass: "Bypass", Stop: "Stopped", GridCharging: "Grid charging",
+    d: "d", h: "h", min: "min", ago: "{0} ago", secAgo: "{0} s ago",
+    days: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    connecting: "connecting…", noPhone: "phone unreachable", online: "online", updating: "updating…", invSilent: "inverter not responding",
+    socEnergy: "Charge by energy counter ({0} kWh) · by voltage ~{1}%", socVoltage: "Charge estimated from voltage",
+    runtime: "Estimated runtime: {0}", ttf: "Full in ≈ {0}", onGrid: "Running on grid power",
+    gridOnFor: "Grid on for {0} (since {1})", gridOffFor: "Grid off for {0} (since {1})", stale: " · data is stale",
+    idle: "Battery idle", charging: "⚡ Charging ", discharging: "▼ Discharging ",
+    unmeasured: "not measured", unmeasuredSub: "the inverter did not report load", unmeasuredTip: "not measured",
+    errLast: "Error: {0}", errStartup: "Failed to start ({0}): {1}", clockApprox: "Device clock not synced yet — times are approximate.",
+    pvError: "PV controller not responding: {0}", phoneCharging: "Phone is charging", phoneNotCharging: "Phone is NOT charging",
+    noUsb: "no USB device", lastRead: " · last read {0}",
+    noDataPeriod: "No data for this period", collecting: "Collecting history (one point every 30 s)…", noData: "no data",
+    now: "now", unsure: "(approximate: data gap)", noOutages: "No outages in this period",
+    measured: "measured {0}", sAvgLoad: "Avg load", sPeak: "Peak load", sUsed: "Consumed", sOutages: "Outages", sOff: "Without grid",
+    histErr: "History unavailable ({0}), retrying…",
+    tokenSaved: "saved (…{0}), leave empty",
+    signLearned: "Auto: detected that charging = {0}. If it shows the opposite, pick it manually.", plus: "plus", minus: "minus",
+    signDefault: "Auto: assuming minus = charging for now (true on HBP18). Confirmed during the first outage without sun.",
+    tgLastErr: "Last error: {0}", tgLastSent: "Last message sent {0}", pctErr: "Phone battery threshold: 1–90%", saved: "Saved",
+    whErr: "Capacity: 100–100000 Wh (e.g. 3000 for 3 kWh)", fvErr: "Full-charge voltage: 10–70 V",
+    resetConfirm: "Reset the charge counter? The new value will be taken from the battery voltage (accurate only at rest).", resetDone: "Reset; the new value will appear in a few seconds",
+    sending: "Sending…", sent: "Sent, check Telegram", searching: "Searching…", notFound: "Nothing found. Send the bot a message and try again.",
+    found: "Found: {0}. Press “Save”.", pickChat: "Pick a chat:", picked: "Selected. Press “Save”.",
+    backup: "Backup", backupDl: "Download backup", backupRestore: "Restore from file…",
+    backupHint: "A copy of the settings (including the Telegram token), charge counter, history and outages is saved automatically every hour to Download/MustMonitor/must-monitor-backup.json on this device — that folder is not deleted when the app is uninstalled. The file contains the bot token, don't share it.",
+    backupLast: "Last auto backup: {0}.", backupNone: "No auto backup yet (the first one is ~2 min after start).", backupErr: "Auto backup error: {0}",
+    reinstallHint: "Just installed? If the app ran here before, restore the settings and history from a backup below (the file is in Download/MustMonitor on the phone).",
+    restoring: "Restoring…", restored: "Restored: {0} history rows, {1} events. Settings applied.", restoreConfirm: "Restore from {0}? Settings will be replaced, history merged.",
+  },
+};
 const store = { get(k) { try { return localStorage.getItem(k); } catch { return null; } }, set(k, v) { try { localStorage.setItem(k, v); } catch {} } };
+let LANG = store.get("lang") || ((navigator.language || "").match(/^(uk|ru)/i) ? "uk" : "en");
+if (!I18N[LANG]) LANG = "uk";
+const t = (k, ...a) => { let s = (I18N[LANG][k] ?? I18N.uk[k] ?? k); a.forEach((x, i) => { s = s.replace("{" + i + "}", x); }); return s; };
 
-$("cards").innerHTML = CARDS.map(([k, label, unit]) =>
-  `<div class="card"><div class="k">${label}, ${unit}</div><div class="v" id="c_${k}">–</div></div>`).join("");
+function applyStatic() {
+  document.documentElement.lang = LANG;
+  document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+  document.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+  document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+  document.querySelectorAll("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+  for (const b of $("tabs").children) b.textContent = t("h" + b.dataset.h);
+  $("langBtn").textContent = LANG === "uk" ? "EN" : "УКР";
+  $("cards").innerHTML = cardsHtml(CARDS);
+  $("cards2").innerHTML = cardsHtml(CARDS2);
+}
+function setLang(l) {
+  LANG = l; store.set("lang", l);
+  applyStatic();
+  if (LIVE) renderLive();
+  renderStatus();
+  renderHistory();
+  if (SETTINGS) applySettings(SETTINGS);
+}
+
+// ---------- config ----------
+// [key, label key, unit, decimals]
+const CARDS = [
+  ["must_load_power_watts", "c_load", "W", 0],
+  ["bat_flow_w", "c_flow", "W", 0],
+  ["bat_flow_a", "c_current", "A", 1],
+  ["must_battery_voltage_volts", "c_bv", "V", 1],
+  ["must_grid_voltage_volts", "c_gridV", "V", 0],
+  ["must_grid_import_watts", "c_gridImp", "W", 0],
+  ["must_pv_power_watts", "c_pv", "W", 0],
+];
+const CARDS2 = [
+  ["must_load_percent", "c_loadPct", "%", 0],
+  ["must_pv_voltage_volts", "c_pvV", "V", 1],
+  ["must_pv_charger_current_amps", "c_pvA", "A", 1],
+  ["must_inverter_voltage_volts", "c_outV", "V", 1],
+  ["must_inverter_frequency_hertz", "c_outHz", "Hz", 2],
+  ["must_inverter_power_watts", "c_invW", "W", 0],
+  ["must_ac_radiator_temp_celsius", "c_ac", "°C", 0],
+  ["must_dc_radiator_temp_celsius", "c_dc", "°C", 0],
+  ["must_transformer_temp_celsius", "c_tr", "°C", 0],
+];
+const GAP_S = 95;           // break lines when points are further apart (history step is 30 s)
+const NODATA_S = 600;       // a hole this long in history = monitoring was not running
+const STALE_WARN_S = 12;    // amber: one or two polls missed (e.g. during grid switchover)
+const STALE_BAD_S = 25;     // red: the inverter is really not answering
+const $ = id => document.getElementById(id);
+const num = x => typeof x === "number" && Number.isFinite(x);
+
+// Server clock: ages and "since" are computed against the device's time, not the viewer's.
+let srvOffset = 0;
+const nowMs = () => Date.now() + srvOffset;
+
+async function fetchJson(url, opts = {}) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), 6000);
+  try {
+    const r = await fetch(url, { cache: "no-store", ...opts, signal: ctl.signal });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
+    return j;
+  } finally { clearTimeout(timer); }
+}
+const post = (url, data) => fetchJson(url, { method: "POST", headers: { "X-Must-Monitor": "1" }, body: new URLSearchParams({ ...data, lang: LANG }) });
+
+function cardsHtml(list) {
+  return list.map(([k, label, unit]) =>
+    `<div class="card"><div class="k">${t(label)}, ${unit}</div><div class="v" id="c_${k}">–</div><div class="s" id="s_${k}"></div></div>`).join("");
+}
 
 function fmtDur(h) {
   if (!isFinite(h) || h <= 0) return "–";
   const m = Math.round(h * 60);
-  if (m < 60) return m + " хв";
+  if (m < 60) return m + " " + t("min");
   const d = Math.floor(m / 1440), hh = Math.floor(m % 1440 / 60), mm = m % 60;
-  return (d ? d + " д " : "") + hh + " год " + mm + " хв";
+  return (d ? d + " " + t("d") + " " : "") + hh + " " + t("h") + " " + mm + " " + t("min");
 }
 const pad2 = n => String(n).padStart(2, "0");
 const hm = ts => { const d = new Date(ts * 1000); return pad2(d.getHours()) + ":" + pad2(d.getMinutes()); };
-const DAYS = ["нд", "пн", "вт", "ср", "чт", "пт", "сб"];
+const dayName = d => t("days")[d.getDay()];
 const dayHm = ts => {
-  const d = new Date(ts * 1000), today = new Date();
-  return (d.toDateString() === today.toDateString() ? "" : DAYS[d.getDay()] + " ") + hm(ts);
+  const d = new Date(ts * 1000), today = new Date(nowMs());
+  return (d.toDateString() === today.toDateString() ? "" : dayName(d) + " ") + hm(ts);
 };
 
 // ---------- live state ----------
-let LIVE = null;
-async function refresh() {
-  try {
-    const s = await getJson("/api/state");
-    LIVE = s;
-    const v = s.values || {};
-    $("status").textContent = s.online ? "online" : "offline";
-    $("status").className = "chip " + (s.online ? "ok" : "bad");
-    $("state").textContent = STATES[s.workState] || s.workState || "–";
+let LIVE = null, lastFetchOk = 0;
 
-    const socE = v.must_battery_soc_energy_percent, socV = v.must_battery_soc_estimate_percent;
-    const soc = socE != null ? socE : socV;
-    $("socsrc").textContent = socE != null
-      ? "по лічильнику енергії (" + (s.batteryWh / 1000).toFixed(1) + " kWh) · за напругою ~" + (socV != null ? Math.round(socV) : "–") + "%"
-      : "оцінка за напругою";
-    $("soc").textContent = soc == null ? "–" : "~" + Math.round(soc) + "%";
-    $("socbar").style.width = (soc || 0) + "%";
-    $("socbar").style.background = soc < 20 ? "var(--bad)" : soc < 40 ? "var(--warn)" : "var(--ok)";
-
-    const load = v.must_load_power_watts || 0;
-    const onGrid = s.gridOn != null ? s.gridOn : (v.must_grid_voltage_volts || 0) > 150;
-    if (onGrid) $("runtime").textContent = "Живлення від мережі";
-    else if (load > 0 && soc != null) $("runtime").textContent = "Вистачить приблизно на " + fmtDur(soc / 100 * s.batteryWh / load) + " при " + Math.round(load) + " W";
-    else $("runtime").textContent = "–";
-
-    const gl = $("gridline");
-    if (s.gridOn == null || !s.gridSince) { gl.textContent = ""; gl.className = "gridline"; }
-    else {
-      const dur = fmtDur((Date.now() - s.gridSince) / 3600000);
-      gl.textContent = (s.gridOn ? "Світло є вже " : "Світла немає вже ") + dur + " (з " + dayHm(s.gridSince / 1000) + ")";
-      gl.className = "gridline " + (s.gridOn ? "on" : "off");
-    }
-
-    const known = v.must_battery_charge_power_watts != null;
-    v.bat_flow_w = known ? v.must_battery_charge_power_watts : v.must_battery_power_watts;
-    v.bat_flow_a = known ? v.must_battery_charge_current_amps : v.must_battery_current_amps;
-    const fl = $("flow"), fw = v.bat_flow_w, fa = v.bat_flow_a;
-    if (!known) {
-      fl.className = "flow";
-      fl.textContent = fw == null ? "" : "Батарея: " + Math.round(fw) + " W" + (fa != null ? " · " + fa.toFixed(1) + " A" : "") +
-        " (напрям ще не визначено — див. налаштування)";
-    } else if (Math.abs(fw) < 15) { fl.className = "flow"; fl.textContent = "Батарея в режимі очікування"; }
-    else {
-      const chg = fw > 0;
-      fl.className = "flow " + (chg ? "chg" : "dis");
-      fl.textContent = (chg ? "⚡ Заряджається " : "▼ Розряджається ") + (fa != null ? Math.abs(fa).toFixed(1) + " A · " : "") + Math.abs(Math.round(fw)) + " W";
-    }
-
-    for (const [k, , , d] of CARDS) {
-      const x = v[k];
-      $("c_" + k).textContent = x == null ? "–" : x.toFixed(d);
-    }
-    const age = s.lastOk ? Math.round((Date.now() - s.lastOk) / 1000) + " с тому" : "ніколи";
-    $("meta").textContent = (s.device || "немає пристрою") + " · оновлено " + age + (s.lastError ? " · " + s.lastError : "");
-  } catch (e) {
-    $("status").textContent = "error";
-    $("status").className = "chip bad";
-  }
+function setCard(k, x, d, sub, na) {
+  const el = $("c_" + k); if (!el) return;
+  el.className = "v" + (na ? " na" : "");
+  el.textContent = na ? na : num(x) ? x.toFixed(d) : "–";
+  const s = $("s_" + k); if (s) s.textContent = sub || "";
 }
 
-// ---------- charts ----------
+const fmtAge = s => s < 90 ? t("secAgo", Math.round(s)) : t("ago", fmtDur(s / 3600));
+function renderStatus() {
+  const st = $("status"), hero = $("hero");
+  if (!LIVE) { st.textContent = t("connecting"); st.className = "chip"; return; }
+  const sinceFetch = (Date.now() - lastFetchOk) / 1000;
+  const age = LIVE.lastOk ? (nowMs() - LIVE.lastOk) / 1000 : Infinity;
+  let text, cls;
+  if (sinceFetch > STALE_BAD_S) { text = t("noPhone"); cls = "bad"; }
+  else if (age <= STALE_WARN_S) { text = t("online"); cls = "ok"; }
+  else if (age <= STALE_BAD_S) { text = t("updating"); cls = "warn"; }
+  else { text = t("invSilent"); cls = "bad"; }
+  st.textContent = text + (cls !== "ok" && isFinite(age) ? " · " + fmtAge(age) : "");
+  st.className = "chip " + cls;
+  hero.classList.toggle("stale", cls === "bad");
+}
+
+async function refresh() {
+  try {
+    const s = await fetchJson("/api/state");
+    if (num(s.now)) srvOffset = s.now - Date.now();
+    LIVE = s; lastFetchOk = Date.now();
+    renderLive();
+  } catch (e) { /* the status ticker shows the age */ }
+  renderStatus();
+}
+
+function renderLive() {
+  const s = LIVE, v = Object.assign({}, s.values || {});
+  $("state").textContent = s.workState ? t(s.workState) : "–";
+
+  const soc = num(v.must_battery_soc_percent) ? v.must_battery_soc_percent
+    : num(v.must_battery_soc_energy_percent) ? v.must_battery_soc_energy_percent : v.must_battery_soc_estimate_percent;
+  const socV = v.must_battery_soc_estimate_percent;
+  $("soc").textContent = num(soc) ? "~" + Math.round(soc) + "%" : "–";
+  $("socbar").style.width = (num(soc) ? soc : 0) + "%";
+  $("socbar").style.background = !num(soc) ? "var(--line)" : soc < 20 ? "var(--bad)" : soc < 40 ? "var(--warn)" : "var(--ok)";
+  $("socsrc").textContent = s.socSource === "energy" ? t("socEnergy", (s.batteryWh / 1000).toFixed(1), num(socV) ? Math.round(socV) : "–")
+    : s.socSource === "voltage" ? t("socVoltage") : "";
+
+  const rt = v.must_battery_runtime_seconds, ttf = v.must_battery_time_to_full_seconds;
+  const gridOn = s.gridOn != null ? s.gridOn : (v.must_grid_voltage_volts || 0) > 150;
+  $("runtime").textContent = num(rt) && rt > 0 ? t("runtime", fmtDur(rt / 3600)) : num(ttf) && ttf > 0 ? t("ttf", fmtDur(ttf / 3600)) : gridOn ? t("onGrid") : "";
+
+  const gl = $("gridline");
+  if (s.gridOn == null || !s.gridSince) { gl.textContent = ""; gl.className = "gridline"; }
+  else {
+    const dur = fmtDur((nowMs() - s.gridSince) / 3600000);
+    gl.textContent = t(s.gridOn ? "gridOnFor" : "gridOffFor", dur, dayHm(s.gridSince / 1000)) + (s.online ? "" : t("stale"));
+    gl.className = "gridline " + (s.gridOn ? "on" : "off");
+  }
+
+  v.bat_flow_w = v.must_battery_charge_power_watts;
+  v.bat_flow_a = v.must_battery_charge_current_amps;
+  const fl = $("flow"), fw = v.bat_flow_w, fa = v.bat_flow_a;
+  if (!num(fw)) { fl.className = "flow"; fl.textContent = ""; }
+  else if (Math.abs(fw) < 15) { fl.className = "flow"; fl.textContent = t("idle"); }
+  else {
+    const chg = fw > 0;
+    fl.className = "flow " + (chg ? "chg" : "dis");
+    fl.textContent = t(chg ? "charging" : "discharging") + (num(fa) ? Math.abs(fa).toFixed(1) + " A · " : "") + Math.abs(Math.round(fw)) + " W";
+  }
+
+  const unmeasured = v.must_load_power_unmeasured === 1;
+  for (const [k, , , d] of CARDS.concat(CARDS2)) {
+    if (k === "must_load_power_watts" && unmeasured) setCard(k, null, d, t("unmeasuredSub"), t("unmeasured"));
+    else if (k === "must_load_percent" && unmeasured) setCard(k, null, d, "", "—");
+    else setCard(k, v[k], d);
+  }
+
+  const alerts = [];
+  if (!s.online && s.lastError) alerts.push(t("errLast", s.lastError));
+  for (const [k, e] of Object.entries(s.startupErrors || {})) alerts.push(t("errStartup", k, e));
+  if (s.clockApproximate) alerts.push(t("clockApprox"));
+  if (s.chargerError) alerts.push(t("pvError", s.chargerError));
+  $("alert").textContent = alerts.join(" · ");
+
+  const ph = $("phone");
+  if (num(s.deviceBattery)) {
+    ph.hidden = false;
+    ph.textContent = "📱 " + Math.round(s.deviceBattery) + "%" + (s.deviceCharging ? " ⚡" : "");
+    ph.className = "chip" + (!s.deviceCharging && s.deviceBattery <= 15 ? " bad" : "");
+    ph.title = t(s.deviceCharging ? "phoneCharging" : "phoneNotCharging");
+  } else ph.hidden = true;
+
+  $("meta").textContent = (s.device || t("noUsb")) + (s.lastOk ? t("lastRead", dayHm(s.lastOk / 1000)) : "");
+  renderOutages();
+}
+
+// ---------- history ----------
 let RANGE_H = +(store.get("rangeH") || 24);
 if (![1, 6, 24].includes(RANGE_H)) RANGE_H = 24;
-let HIST = null, EVENTS = null, CHARTS = [], hoverT = null;
+let HIST = null, EVENTS = null, CHARTS = [], hoverT = null, drawQueued = false;
 
 function setRange(h) {
   RANGE_H = h; store.set("rangeH", h);
-  for (const b of $("tabs").children) b.classList.toggle("on", +b.dataset.h === h);
+  for (const b of $("tabs").children) b.setAttribute("aria-pressed", String(+b.dataset.h === h));
+  hoverT = null;
   renderHistory();
 }
-$("tabs").addEventListener("click", e => { if (e.target.dataset.h) setRange(+e.target.dataset.h); });
+$("tabs").addEventListener("click", e => { const b = e.target.closest("button"); if (b) setRange(+b.dataset.h); });
 
 function niceTicks(lo, hi, n) {
   const raw = (hi - lo) / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
@@ -294,76 +542,105 @@ function niceTicks(lo, hi, n) {
   return out;
 }
 
-function nearest(rows, t) {
+function nearest(rows, ts) {
   let a = 0, b = rows.length - 1;
   if (b < 0) return null;
-  while (b - a > 1) { const m = (a + b) >> 1; if (rows[m][0] < t) a = m; else b = m; }
-  const r = Math.abs(rows[a][0] - t) <= Math.abs(rows[b][0] - t) ? rows[a] : rows[b];
-  return Math.abs(r[0] - t) <= GAP_S ? r : null;
+  while (b - a > 1) { const m = (a + b) >> 1; if (rows[m][0] < ts) a = m; else b = m; }
+  const r = Math.abs(rows[a][0] - ts) <= Math.abs(rows[b][0] - ts) ? rows[a] : rows[b];
+  return Math.abs(r[0] - ts) <= GAP_S ? r : null;
 }
 
+// Robust range: short spikes (kettle, switchover) must not flatten everything else.
+function robustRange(vals) {
+  if (!vals.length) return [0, 1];
+  const s = vals.slice().sort((a, b) => a - b);
+  const q = p => s[Math.min(s.length - 1, Math.max(0, Math.round(p * (s.length - 1))))];
+  const lo = q(0.005), hi = q(0.995);
+  const pad = (hi - lo) * 0.1 || 1;
+  return [lo - (lo < 0 ? pad : 0), hi + pad];
+}
+
+const L = 40, R = 8, T = 8, B = 20;
 function draw(c) {
   const el = c.el, dpr = window.devicePixelRatio || 1;
   const W = el.clientWidth, H = el.clientHeight;
+  if (!W) return;
   el.width = W * dpr; el.height = H * dpr;
   const ctx = el.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const L = 40, R = 8, T = 8, B = 20, pw = W - L - R, ph = H - T - B;
+  const pw = W - L - R, ph = H - T - B;
   const { rows, t0, t1, series, opt } = c;
 
   if (rows.length < 2) {
     ctx.fillStyle = "#8a90a0"; ctx.font = "14px system-ui";
-    ctx.fillText("Історія збирається (точка раз на 30 с)…", 10, 30);
+    ctx.fillText(HIST && HIST.rows.length ? t("noDataPeriod") : t("collecting"), 10, 30);
     return;
   }
 
-  let lo = Infinity, hi = -Infinity;
-  for (const r of rows) for (const s of series) if (!s.hidden && r[s.i] != null) { lo = Math.min(lo, r[s.i]); hi = Math.max(hi, r[s.i]); }
-  if (!isFinite(lo)) { lo = 0; hi = 1; }
+  let lo, hi;
+  if (opt.robust) {
+    const vals = [];
+    for (const r of rows) for (const s of series) if (!s.hidden && s.scale !== false && num(r[s.i])) vals.push(r[s.i]);
+    [lo, hi] = robustRange(vals);
+  } else {
+    lo = Infinity; hi = -Infinity;
+    for (const r of rows) for (const s of series) if (!s.hidden && num(r[s.i])) { lo = Math.min(lo, r[s.i]); hi = Math.max(hi, r[s.i]); }
+    if (!isFinite(lo)) { lo = 0; hi = 1; }
+  }
   if (opt.min != null) lo = Math.min(lo, opt.min);
   if (opt.max != null) hi = Math.max(hi, opt.max);
   if (opt.zero) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
   if (hi - lo < (opt.minSpan || 1)) { const m = (hi + lo) / 2, h = (opt.minSpan || 1) / 2; lo = m - h; hi = m + h; }
   const ticks = niceTicks(lo, hi, 4);
   lo = ticks[0]; hi = ticks[ticks.length - 1];
-  const X = t => L + (t - t0) / (t1 - t0) * pw;
+  const X = ts => L + (ts - t0) / (t1 - t0) * pw;
   const Y = y => T + ph - (y - lo) / (hi - lo) * ph;
 
-  // outage shading
   ctx.fillStyle = "rgba(243,18,96,.13)";
   for (const [a, b] of opt.shade || []) ctx.fillRect(X(a), T, Math.max(1, X(b) - X(a)), ph);
+  // holes in the data: monitoring was off, nothing is known about that time (drawn over outage shading)
+  for (const [a, b] of c.holes || []) {
+    const xa = X(a), xb = X(b);
+    ctx.fillStyle = "rgba(15,17,21,.75)"; ctx.fillRect(xa, T, xb - xa, ph);
+    ctx.strokeStyle = "rgba(138,144,160,.18)"; ctx.lineWidth = 1;
+    ctx.save(); ctx.beginPath(); ctx.rect(xa, T, xb - xa, ph); ctx.clip();
+    for (let x = xa - ph; x < xb; x += 10) { ctx.beginPath(); ctx.moveTo(x, T + ph); ctx.lineTo(x + ph, T); ctx.stroke(); }
+    ctx.restore();
+    if (xb - xa > 70) { ctx.fillStyle = "#8a90a0"; ctx.font = "12px system-ui"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(t("noData"), (xa + xb) / 2, T + ph / 2); }
+  }
 
-  // y grid
-  ctx.font = "11px system-ui"; ctx.textBaseline = "middle"; ctx.textAlign = "right";
+  ctx.font = "12px system-ui"; ctx.textBaseline = "middle"; ctx.textAlign = "right";
   for (const v of ticks) {
     ctx.strokeStyle = v === 0 ? "#3a404d" : "#22262e"; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(L, Math.round(Y(v)) + .5); ctx.lineTo(W - R, Math.round(Y(v)) + .5); ctx.stroke();
-    ctx.fillStyle = "#8a90a0"; ctx.fillText(Math.abs(v) >= 1000 ? (v / 1000) + "k" : v, L - 6, Y(v));
+    ctx.fillStyle = "#9aa0b0"; ctx.fillText(Math.abs(v) >= 1000 ? (v / 1000) + "k" : v, L - 6, Y(v));
   }
 
-  // x ticks on local time boundaries
+  // x ticks on local time boundaries; midnight gets the day name
   const step = RANGE_H <= 1 ? 600 : RANGE_H <= 6 ? 3600 : 3 * 3600;
   const off = new Date().getTimezoneOffset() * 60;
   ctx.textAlign = "center"; ctx.textBaseline = "top";
-  for (let t = Math.ceil((t0 - off) / step) * step + off; t <= t1; t += step) {
-    const x = X(t);
+  for (let ts = Math.ceil((t0 - off) / step) * step + off; ts <= t1; ts += step) {
+    const x = X(ts);
     if (x < L + 14 || x > W - R - 14) continue;
-    ctx.fillStyle = "#8a90a0"; ctx.fillText(hm(t), x, T + ph + 5);
+    const d = new Date(ts * 1000), midnight = d.getHours() === 0 && d.getMinutes() === 0;
+    ctx.fillStyle = midnight ? "#e6e8ee" : "#9aa0b0";
+    ctx.fillText(midnight ? dayName(d) : hm(ts), x, T + ph + 5);
   }
 
-  // series
   ctx.save();
   ctx.beginPath(); ctx.rect(L, T, pw, ph); ctx.clip();
   for (const s of series) {
-    if (s.hidden) continue;
+    if (s.hidden || s.i < 0) continue;
     const segs = []; let cur = null, prevT = -Infinity;
     for (const r of rows) {
       const y = r[s.i];
-      if (y == null || r[0] - prevT > GAP_S) { if (cur && cur.length) segs.push(cur); cur = y == null ? null : []; }
-      if (y != null) { if (!cur) cur = []; cur.push([X(r[0]), Y(y)]); }
-      prevT = y == null ? -Infinity : r[0];
+      if (!num(y) || r[0] - prevT > GAP_S) { if (cur && cur.length) segs.push(cur); cur = num(y) ? [] : null; }
+      if (num(y)) { if (!cur) cur = []; cur.push([X(r[0]), Y(y)]); }
+      prevT = num(y) ? r[0] : -Infinity;
     }
     if (cur && cur.length) segs.push(cur);
+    ctx.setLineDash(s.dash || []);
     for (const seg of segs) {
       if (s.fill) {
         const base = Y(Math.max(lo, Math.min(hi, 0)));
@@ -377,202 +654,279 @@ function draw(c) {
       ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.6; ctx.lineJoin = "round"; ctx.stroke();
     }
   }
+  ctx.setLineDash([]);
   ctx.restore();
 
-  // crosshair + tooltip
   if (hoverT == null || hoverT < t0 || hoverT > t1) return;
   const r = nearest(rows, hoverT);
   if (!r) return;
   const x = X(r[0]);
   ctx.strokeStyle = "#5a6070"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(Math.round(x) + .5, T); ctx.lineTo(Math.round(x) + .5, T + ph); ctx.stroke();
-  const lines = [[hm(r[0]), "#e6e8ee"]];
+  const lines = [[RANGE_H >= 24 ? dayHm(r[0]) : hm(r[0]), "#e6e8ee"]];
   for (const s of series) {
-    if (r[s.i] == null) continue;
-    if (!s.hidden) { ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(x, Y(r[s.i]), 3, 0, 7); ctx.fill(); }
-    lines.push([s.label + ": " + r[s.i].toFixed(s.dec || 0) + " " + s.unit, s.hidden ? "#8a90a0" : s.color]);
+    if (s.i < 0) continue;
+    if (!num(r[s.i])) { if (s.naLabel && r[s.naFlag] === 1) lines.push([t(s.label) + ": " + t(s.naLabel), "#8a90a0"]); continue; }
+    if (!s.hidden) { ctx.fillStyle = s.color; ctx.beginPath(); ctx.arc(x, Math.max(T, Math.min(T + ph, Y(r[s.i]))), 3, 0, 7); ctx.fill(); }
+    lines.push([t(s.label) + ": " + r[s.i].toFixed(s.dec || 0) + " " + s.unit, s.hidden ? "#9aa0b0" : s.color]);
   }
   ctx.font = "12px system-ui"; ctx.textAlign = "left"; ctx.textBaseline = "top";
-  const bw = Math.max(...lines.map(([t]) => ctx.measureText(t).width)) + 16, bh = lines.length * 16 + 10;
-  let bx = x + 10; if (bx + bw > W - R) bx = x - 10 - bw;
+  const bw = Math.max(...lines.map(([s]) => ctx.measureText(s).width)) + 16, bh = lines.length * 16 + 10;
+  let bx = x + 10; if (bx + bw > W - R) bx = Math.max(0, x - 10 - bw);
   const by = T + 4;
-  ctx.fillStyle = "rgba(15,17,21,.92)"; ctx.strokeStyle = "#2f3440";
+  ctx.fillStyle = "rgba(15,17,21,.94)"; ctx.strokeStyle = "#2f3440";
   ctx.beginPath(); ctx.roundRect ? ctx.roundRect(bx, by, bw, bh, 6) : ctx.rect(bx, by, bw, bh); ctx.fill(); ctx.stroke();
-  lines.forEach(([t, col], k) => { ctx.fillStyle = col; ctx.fillText(t, bx + 8, by + 6 + k * 16); });
+  lines.forEach(([s, col], k) => { ctx.fillStyle = col; ctx.fillText(s, bx + 8, by + 6 + k * 16); });
 }
 
+function redraw() {
+  if (drawQueued) return;
+  drawQueued = true;
+  requestAnimationFrame(() => { drawQueued = false; CHARTS.forEach(draw); });
+}
+
+let hoverTimer = null;
 function attachHover(el) {
   const move = e => {
     const c = CHARTS.find(c => c.el === el); if (!c) return;
-    const rect = el.getBoundingClientRect(), L = 40, R = 8;
+    const rect = el.getBoundingClientRect();
     hoverT = c.t0 + (e.clientX - rect.left - L) / (rect.width - L - R) * (c.t1 - c.t0);
-    CHARTS.forEach(draw);
+    clearTimeout(hoverTimer);
+    if (e.pointerType === "touch") hoverTimer = setTimeout(() => { hoverT = null; redraw(); }, 5000);
+    redraw();
   };
   el.addEventListener("pointermove", move);
   el.addEventListener("pointerdown", move);
-  el.addEventListener("pointerleave", () => { hoverT = null; CHARTS.forEach(draw); });
+  // On touch, pointerleave fires right after the finger lifts: keep the tooltip (it times out instead).
+  el.addEventListener("pointerleave", e => { if (e.pointerType !== "touch") { hoverT = null; redraw(); } });
+  el.addEventListener("keydown", e => {
+    const c = CHARTS.find(c => c.el === el); if (!c || !c.rows.length) return;
+    if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+    e.preventDefault();
+    const stepS = (c.t1 - c.t0) / 60;
+    hoverT = Math.max(c.t0, Math.min(c.t1, (hoverT == null ? c.t1 : hoverT) + (e.key === "ArrowLeft" ? -stepS : stepS)));
+    redraw();
+  });
+  el.addEventListener("blur", () => { hoverT = null; redraw(); });
 }
 ["chPower", "chSoc", "chGrid"].forEach(id => attachHover($(id)));
+document.addEventListener("pointerdown", e => { if (hoverT != null && e.target.tagName !== "CANVAS") { hoverT = null; redraw(); } });
 
 function outageIntervals(now) {
   const ev = (EVENTS && EVENTS.events) || [];
   const out = []; let offStart = null;
   ev.forEach(([ts, on], k) => {
-    const t = ts / 1000;
-    if (!on) offStart = t;
-    else { if (offStart != null || k === 0) out.push([offStart != null ? offStart : -Infinity, t]); offStart = null; }
+    const s = ts / 1000;
+    if (!on) offStart = s;
+    else { if (offStart != null || k === 0) out.push([offStart != null ? offStart : -Infinity, s]); offStart = null; }
   });
   if (EVENTS && EVENTS.gridOn === false) out.push([offStart != null ? offStart : (EVENTS.gridSince ? EVENTS.gridSince / 1000 : -Infinity), now]);
   return out;
 }
 
-function renderHistory() {
-  if (!HIST) return;
-  const now = Date.now() / 1000, t1 = now, t0 = now - RANGE_H * 3600;
-  const ix = k => HIST.keys.indexOf(k);
-  const rows = HIST.rows.filter(r => r[0] >= t0);
-  const all = outageIntervals(now);
-  const shade = all.map(([a, b]) => [Math.max(a, t0), Math.min(b, t1)]).filter(([a, b]) => b > a);
+function dataHoles(rows) {
+  const out = [];
+  for (let k = 1; k < rows.length; k++) if (rows[k][0] - rows[k - 1][0] > NODATA_S) out.push([rows[k - 1][0], rows[k][0]]);
+  return out;
+}
 
-  // stats
-  const iL = ix("must_load_power_watts"), iM = ix("must_load_power_max_watts"), iP = ix("must_pv_power_watts");
-  let wh = 0, pvWh = 0, sum = 0, n = 0, peak = null;
-  for (let k = 0; k < rows.length; k++) {
-    const r = rows[k];
-    if (r[iL] != null) { sum += r[iL]; n++; }
-    const pk = r[iM] != null ? r[iM] : r[iL];
-    if (pk != null && (peak == null || pk > peak)) peak = pk;
-    if (k > 0) {
-      const dt = r[0] - rows[k - 1][0];
-      if (dt <= GAP_S) {
-        if (r[iL] != null) wh += r[iL] * dt / 3600;
-        if (iP >= 0 && r[iP] != null) pvWh += r[iP] * dt / 3600;
-      }
-    }
-  }
-  const offS = shade.reduce((s, [a, b]) => s + (b - a), 0);
-  const stats = [
-    ["Сер. навантаження", n ? Math.round(sum / n) + " W" : "–"],
-    ["Пік", peak != null ? Math.round(peak) + " W" : "–"],
-    ["Спожито", n ? (wh / 1000).toFixed(2) + " kWh" : "–"],
-    ["PV", n ? (pvWh / 1000).toFixed(2) + " kWh" : "–"],
-    ["Відключень", String(shade.length)],
-    ["Без світла", offS ? fmtDur(offS / 3600) : "0 хв"],
-  ];
-  $("stats").innerHTML = stats.map(([k, v]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div></div>`).join("");
-
-  CHARTS = [
-    { el: $("chPower"), rows, t0, t1, opt: { zero: true, minSpan: 100 }, series: [
-      { i: iM, color: "rgba(78,161,255,.45)", label: "Пік", unit: "W", width: 1 },
-      { i: iL, color: "#4ea1ff", fill: "rgba(78,161,255,.12)", label: "Навантаження", unit: "W" },
-      { i: iP, color: "#f5c542", label: "PV", unit: "W" },
-      { i: ix("must_grid_import_watts"), color: "rgba(62,207,142,.8)", label: "З мережі", unit: "W", width: 1.2 },
-      { i: HIST.rows.some(r => r[ix("must_battery_charge_power_watts")] != null) ? ix("must_battery_charge_power_watts") : ix("must_battery_power_watts"),
-        color: "#b57cff", label: "Батарея (+заряд)", unit: "W" },
-      { i: ix("must_battery_charge_current_amps"), color: "#b57cff", label: "Струм", unit: "A", dec: 1, hidden: true },
-    ] },
-    { el: $("chSoc"), rows, t0, t1, opt: { min: 0, max: 100, shade }, series: [
-      { i: ix("must_battery_soc_estimate_percent"), color: "rgba(138,144,160,.7)", label: "За напругою", unit: "%", width: 1 },
-      { i: ix("must_battery_soc_energy_percent"), color: "#3ecf8e", fill: "rgba(62,207,142,.10)", label: "По енергії", unit: "%" },
-      { i: ix("must_battery_voltage_volts"), color: "#3ecf8e", label: "Напруга", unit: "V", dec: 1, hidden: true },
-    ] },
-    { el: $("chGrid"), rows, t0, t1, opt: { zero: true, minSpan: 50, shade }, series: [
-      { i: ix("must_grid_voltage_volts"), color: "#3ecf8e", label: "Мережа", unit: "V" },
-    ] },
-  ];
-  CHARTS.forEach(draw);
-
-  // outage list (newest first)
-  const list = all.filter(([a, b]) => b > t0).reverse().slice(0, 15);
+function renderOutages() {
+  if (!EVENTS) return;
+  const holes = HIST ? dataHoles(HIST.rows) : [];
+  const now = nowMs() / 1000, t0 = now - RANGE_H * 3600;
+  const list = outageIntervals(now).filter(([a, b]) => b > t0).reverse().slice(0, 15);
   $("outages").innerHTML = list.length ? list.map(([a, b]) => {
     const ongoing = EVENTS.gridOn === false && b === now;
     const from = isFinite(a) ? dayHm(a) : "?";
-    const to = ongoing ? "зараз" : hm(b);
+    const to = ongoing ? t("now") : hm(b);
     const dur = isFinite(a) ? fmtDur((b - a) / 3600) : "";
-    return `<li><span>${from} – ${to}</span><span class="d">${dur}</span></li>`;
-  }).join("") : `<li class="empty">За обраний період відключень не було</li>`;
+    // if monitoring was off inside this outage, its real end/start is unknown
+    const unsure = holes.some(([ha, hb]) => hb > a && ha < b);
+    return `<li><span>${from} – ${to}${unsure ? ' <span class="d">' + t("unsure") + "</span>" : ""}</span><span class="d">${unsure ? "≤ " : ""}${dur}</span></li>`;
+  }).join("") : `<li class="empty">${t("noOutages")}</li>`;
 }
 
+function renderHistory() {
+  if (!HIST) return;
+  const now = nowMs() / 1000, t1 = now, t0 = now - RANGE_H * 3600;
+  const ix = k => HIST.keys.indexOf(k);
+  const rows = HIST.rows.filter(r => r[0] >= t0);
+  const shade = outageIntervals(now).map(([a, b]) => [Math.max(a, t0), Math.min(b, t1)]).filter(([a, b]) => b > a);
+
+  // Time-weighted: each row is the average over the preceding ~30 s, so energy = P·dt and
+  // average power = energy / covered time. Unmeasured (Bypass) and missing periods are excluded.
+  const iL = ix("must_load_power_watts"), iM = ix("must_load_power_max_watts"), iP = ix("must_pv_power_watts");
+  let wh = 0, pvWh = 0, covS = 0, pvS = 0, peak = null;
+  for (let k = 1; k < rows.length; k++) {
+    const r = rows[k], dt = r[0] - rows[k - 1][0];
+    const pk = num(r[iM]) ? r[iM] : r[iL];
+    if (num(pk) && (peak == null || pk > peak)) peak = pk;
+    if (dt > GAP_S) continue;
+    if (num(r[iL])) { wh += r[iL] * dt / 3600; covS += dt; }
+    if (iP >= 0 && num(r[iP])) { pvWh += r[iP] * dt / 3600; pvS += dt; }
+  }
+  const holes = dataHoles(rows);
+  const overlap = (a, b) => holes.reduce((s, [ha, hb]) => s + Math.max(0, Math.min(b, hb) - Math.max(a, ha)), 0);
+  const offS = shade.reduce((s, [a, b]) => s + (b - a) - overlap(a, b), 0);
+  const covNote = covS && covS < RANGE_H * 3600 * 0.95 ? t("measured", fmtDur(covS / 3600)) : "";
+  const stats = [
+    [t("sAvgLoad"), covS ? Math.round(wh / (covS / 3600)) + " W" : "–", covNote],
+    [t("sPeak"), peak != null ? Math.round(peak) + " W" : "–", ""],
+    [t("sUsed"), covS ? (wh / 1000).toFixed(2) + " kWh" : "–", covNote],
+    ["PV", pvS && pvWh > 0 ? (pvWh / 1000).toFixed(2) + " kWh" : "–", ""],
+    [t("sOutages"), String(shade.length), ""],
+    [t("sOff"), offS ? fmtDur(offS / 3600) : "0 " + t("min"), ""],
+  ];
+  $("stats").innerHTML = stats.map(([k, v, s]) => `<div class="card"><div class="k">${k}</div><div class="v">${v}</div><div class="s">${s}</div></div>`).join("");
+
+  const iUnm = ix("must_load_power_unmeasured");
+  // series labels are i18n keys, translated when drawn
+  CHARTS = [
+    { el: $("chPower"), rows, t0, t1, holes, opt: { zero: true, minSpan: 100, robust: true, shade }, series: [
+      { i: iM, color: "rgba(78,161,255,.55)", label: "peak", unit: "W", width: 1, dash: [4, 3], scale: false, hidden: RANGE_H >= 24 },
+      { i: iL, color: "#4ea1ff", fill: "rgba(78,161,255,.12)", label: "load", unit: "W", naLabel: "unmeasuredTip", naFlag: iUnm },
+      { i: iP, color: "#f5c542", label: "PV", unit: "W" },
+      { i: ix("must_grid_import_watts"), color: "#2dd4bf", label: "fromGrid", unit: "W", width: 1.2 },
+      { i: ix("must_battery_charge_power_watts"), color: "#b57cff", label: "batteryCharge", unit: "W" },
+      { i: ix("must_battery_charge_current_amps"), color: "#b57cff", label: "batteryCurrent", unit: "A", dec: 1, hidden: true },
+    ] },
+    { el: $("chSoc"), rows, t0, t1, holes, opt: { min: 0, max: 100, shade }, series: [
+      { i: ix("must_battery_soc_estimate_percent"), color: "rgba(138,144,160,.8)", label: "byVoltage", unit: "%", width: 1, dash: [4, 3] },
+      { i: ix("must_battery_soc_energy_percent"), color: "#3ecf8e", fill: "rgba(62,207,142,.10)", label: "byEnergy", unit: "%" },
+      { i: ix("must_battery_voltage_volts"), color: "#3ecf8e", label: "voltage", unit: "V", dec: 1, hidden: true },
+    ] },
+    { el: $("chGrid"), rows, t0, t1, holes, opt: { zero: true, minSpan: 50, shade }, series: [
+      { i: ix("must_grid_voltage_volts"), color: "#2dd4bf", label: "grid", unit: "V" },
+    ] },
+  ];
+  redraw();
+  renderOutages();
+}
+
+// Incremental: after the first load only rows newer than the last one are fetched.
 async function loadHistory() {
   try {
-    const [h, e] = await Promise.all([getJson("/api/history"), getJson("/api/events")]);
-    HIST = h; EVENTS = e;
+    const last = HIST && HIST.rows.length ? HIST.rows[HIST.rows.length - 1][0] : 0;
+    const [h, e] = await Promise.all([fetchJson("/api/history" + (last ? "?since=" + last : "")), fetchJson("/api/events")]);
+    if (!HIST || !last || h.keys.join() !== HIST.keys.join()) HIST = h;
+    else {
+      HIST.rows.push(...h.rows);
+      const cutoff = nowMs() / 1000 - (h.retentionSeconds || 86400);
+      while (HIST.rows.length && HIST.rows[0][0] < cutoff) HIST.rows.shift();
+    }
+    EVENTS = e;
+    $("histMsg").textContent = "";
     renderHistory();
-  } catch {}
+  } catch (e) {
+    $("histMsg").textContent = t("histErr", e.message);
+  }
 }
-window.addEventListener("resize", () => CHARTS.forEach(draw));
+window.addEventListener("resize", redraw);
 
-// ---------- telegram settings ----------
-function tgMsg(text, cls) { $("tgMsg").textContent = text; $("tgMsg").className = "msg " + (cls || ""); }
-async function post(url, data) {
-  const r = await fetch(url, { method: "POST", body: new URLSearchParams(data) });
-  const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || ("HTTP " + r.status));
-  return j;
+// ---------- settings ----------
+let SETTINGS = null;
+function say(id, text, cls) { $(id).textContent = text; $(id).className = "msg " + (cls || ""); }
+async function busy(btn, fn) {
+  if (btn.disabled) return;
+  const label = btn.textContent;
+  btn.disabled = true; btn.textContent = label + "…";
+  try { await fn(); } finally { btn.disabled = false; btn.textContent = label; }
 }
 function applySettings(s) {
+  SETTINGS = s;
   $("tgChat").value = s.chatId || "";
   $("tgEnabled").checked = !!s.enabled;
+  $("invAlert").checked = s.inverterOfflineAlert !== false;
+  $("phoneAlert").checked = !!s.phoneLowAlert;
+  $("phonePct").value = s.phoneLowPercent || 10;
+  $("tgLang").value = s.tgLang || "uk";
   $("tgToken").value = "";
-  $("tgToken").placeholder = s.tokenSet ? "збережено (…" + s.tokenHint + "), залиште порожнім" : "123456789:AA…";
+  $("tgToken").placeholder = s.tokenSet ? t("tokenSaved", s.tokenHint) : "123456789:AA…";
   $("batSign").value = String(s.batterySign || 0);
-  if (document.activeElement !== $("batWh")) $("batWh").value = s.batteryWh || "";
-  $("batHint").textContent = s.batterySignLearned
-    ? "Авто: визначено, що заряд = " + (s.batterySignLearned > 0 ? "плюс" : "мінус") + ". Якщо показує навпаки — оберіть вручну."
-    : "Авто: поки що вважається, що мінус = заряд (так на HBP18). Уточниться при першому відключенні світла без сонця.";
-  if (s.lastError) tgMsg("Остання помилка: " + s.lastError, "err");
-  else if (s.lastSent) tgMsg("Останнє повідомлення надіслано " + dayHm(s.lastSent / 1000), "ok");
+  $("batWh").value = s.batteryWh || "";
+  $("batFullV").value = s.batteryFullVolts != null ? (+s.batteryFullVolts).toFixed(1) : "";
+  $("batHint").textContent = s.batterySignLearned ? t("signLearned", t(s.batterySignLearned > 0 ? "plus" : "minus")) : t("signDefault");
+  $("reinstallHint").textContent = s.tokenSet ? "" : t("reinstallHint");
+  $("backupHint").textContent = t("backupHint") + " " + (s.backupError ? t("backupErr", s.backupError) : s.backupLast ? t("backupLast", dayHm(s.backupLast / 1000)) : t("backupNone"));
+  if (s.lastError) say("tgMsg", t("tgLastErr", s.lastError), "err");
+  else if (s.lastSent) say("tgMsg", t("tgLastSent", dayHm(s.lastSent / 1000)), "ok");
 }
 async function loadSettings() {
   try {
-    const s = await getJson("/api/settings");
+    const s = await fetchJson("/api/settings");
     applySettings(s);
     if (!s.tokenSet) $("settings").open = true;
   } catch {}
 }
-$("btnSave").onclick = async () => {
+$("btnSave").onclick = e => busy(e.target, async () => {
+  const pct = +$("phonePct").value.trim();
+  if (!(pct >= 1 && pct <= 90)) return say("tgMsg", t("pctErr"), "err");
   try {
-    applySettings(await post("/api/settings", { token: $("tgToken").value, chatId: $("tgChat").value, enabled: $("tgEnabled").checked ? "1" : "0" }));
-    tgMsg("Збережено", "ok");
-  } catch (e) { tgMsg(e.message, "err"); }
-};
-$("batSign").onchange = async () => {
-  try { applySettings(await post("/api/settings", { batterySign: $("batSign").value })); refresh(); } catch (e) { tgMsg(e.message, "err"); }
-};
-function batMsg(text, cls) { $("batMsg").textContent = text; $("batMsg").className = "msg " + (cls || ""); }
-$("btnBatSave").onclick = async () => {
-  try { applySettings(await post("/api/settings", { batteryWh: $("batWh").value.trim() })); batMsg("Збережено", "ok"); refresh(); }
-  catch (e) { batMsg(e.message, "err"); }
-};
-$("btnSocReset").onclick = async () => {
-  try { await post("/api/settings", { socReset: "1" }); batMsg("Скинуто, нове значення з'явиться за кілька секунд", "ok"); setTimeout(refresh, 6000); }
-  catch (e) { batMsg(e.message, "err"); }
-};
-$("btnTest").onclick = async () => {
-  tgMsg("Надсилаю…");
-  try { await post("/api/telegram/test", { token: $("tgToken").value, chatId: $("tgChat").value }); tgMsg("Надіслано, перевірте Telegram", "ok"); }
-  catch (e) { tgMsg(e.message, "err"); }
-};
-$("btnDetect").onclick = async () => {
-  tgMsg("Шукаю…"); $("chatPick").innerHTML = "";
+    applySettings(await post("/api/settings", {
+      token: $("tgToken").value, chatId: $("tgChat").value, enabled: $("tgEnabled").checked ? "1" : "0", tgLang: $("tgLang").value,
+      inverterOfflineAlert: $("invAlert").checked ? "1" : "0", phoneLowAlert: $("phoneAlert").checked ? "1" : "0", phoneLowPercent: String(pct),
+    }));
+    say("tgMsg", t("saved"), "ok");
+  } catch (e) { say("tgMsg", e.message, "err"); }
+});
+$("btnBatSave").onclick = e => busy(e.target, async () => {
+  const wh = +$("batWh").value.trim(), fv = +$("batFullV").value.trim().replace(",", ".");
+  if (!(wh >= 100 && wh <= 100000)) return say("batMsg", t("whErr"), "err");
+  if (!(fv >= 10 && fv <= 70)) return say("batMsg", t("fvErr"), "err");
+  try {
+    applySettings(await post("/api/settings", { batteryWh: String(wh), batteryFullVolts: String(fv), batterySign: $("batSign").value }));
+    say("batMsg", t("saved"), "ok"); refresh();
+  } catch (e) { say("batMsg", e.message, "err"); }
+});
+$("btnSocReset").onclick = e => busy(e.target, async () => {
+  if (!confirm(t("resetConfirm"))) return;
+  try { await post("/api/settings", { socReset: "1" }); say("batMsg", t("resetDone"), "ok"); setTimeout(refresh, 6000); }
+  catch (e) { say("batMsg", e.message, "err"); }
+});
+$("btnTest").onclick = e => busy(e.target, async () => {
+  say("tgMsg", t("sending"));
+  try { await post("/api/telegram/test", { token: $("tgToken").value, chatId: $("tgChat").value }); say("tgMsg", t("sent"), "ok"); }
+  catch (e) { say("tgMsg", e.message, "err"); }
+});
+$("btnDetect").onclick = e => busy(e.target, async () => {
+  say("tgMsg", t("searching")); $("chatPick").innerHTML = "";
   try {
     const { chats } = await post("/api/telegram/detect", { token: $("tgToken").value });
-    if (!chats.length) { tgMsg("Нічого не знайдено. Напишіть боту повідомлення і спробуйте ще раз.", "err"); return; }
-    if (chats.length === 1) { $("tgChat").value = chats[0].id; tgMsg("Знайдено: " + (chats[0].title || chats[0].id) + ". Натисніть «Зберегти».", "ok"); return; }
-    tgMsg("Оберіть чат:");
+    if (!chats.length) return say("tgMsg", t("notFound"), "err");
+    if (chats.length === 1) { $("tgChat").value = chats[0].id; return say("tgMsg", t("found", chats[0].title || chats[0].id), "ok"); }
+    say("tgMsg", t("pickChat"));
     for (const c of chats) {
       const b = document.createElement("button");
       b.textContent = c.title || c.id;
-      b.onclick = () => { $("tgChat").value = c.id; $("chatPick").innerHTML = ""; tgMsg("Обрано. Натисніть «Зберегти».", "ok"); };
+      b.onclick = () => { $("tgChat").value = c.id; $("chatPick").innerHTML = ""; say("tgMsg", t("picked"), "ok"); };
       $("chatPick").appendChild(b);
     }
-  } catch (e) { tgMsg(e.message, "err"); }
+  } catch (e) { say("tgMsg", e.message, "err"); }
+});
+$("restoreFile").onchange = async e => {
+  const f = e.target.files[0];
+  e.target.value = "";
+  if (!f || !confirm(t("restoreConfirm", f.name))) return;
+  say("bakMsg", t("restoring"));
+  try {
+    const r = await fetchJson("/api/restore?lang=" + LANG, {
+      method: "POST", headers: { "X-Must-Monitor": "1", "Content-Type": "application/json; charset=utf-8" }, body: await f.text(),
+    });
+    say("bakMsg", t("restored", r.rows || 0, r.events || 0), "ok");
+    HIST = null;
+    loadSettings(); loadHistory(); refresh();
+  } catch (err) { say("bakMsg", err.message, "err"); }
 };
+$("langBtn").onclick = () => setLang(LANG === "uk" ? "en" : "uk");
 
+// ---------- start; timers pause while the tab is hidden ----------
+applyStatic();
 setRange(RANGE_H);
 refresh(); loadHistory(); loadSettings();
-setInterval(refresh, 5000);
-setInterval(loadHistory, 30000);
+setInterval(() => { if (!document.hidden) refresh(); }, 5000);
+setInterval(() => { if (!document.hidden) loadHistory(); }, 30000);
+setInterval(() => { if (!document.hidden) renderStatus(); }, 1000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) { refresh(); loadHistory(); } });
 </script>
 </body>
 </html>

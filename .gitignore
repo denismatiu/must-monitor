@@ -27,3 +27,6 @@ captures/
 
 # gradle-wrapper.jar must stay committed
 !gradle/wrapper/gradle-wrapper.jar
+
+# Claude Code agents / local settings
+.claude/

@@ -1,6 +1,7 @@
 package ua.den.mustmonitor
 
 import org.json.JSONObject
+import java.io.File
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -12,6 +13,7 @@ class TelegramException(val code: Int, msg: String) : IOException(msg)
 /**
  * Sends messages through the Bot API. Messages are queued and retried, because
  * when the power goes out the internet often goes with it for a while.
+ * The queue is persisted to a file, so a restart mid-outage doesn't lose messages.
  */
 object Telegram {
     private const val RETRY_MS = 30_000L
@@ -22,21 +24,66 @@ object Telegram {
 
     private val queue = LinkedBlockingDeque<Msg>()
     private lateinit var settings: Settings
+    private var file: File? = null
     @Volatile private var started = false
 
     @Volatile var lastError: String? = null
     @Volatile var lastSent: Long = 0
 
     @Synchronized
-    fun start(s: Settings) {
+    fun start(s: Settings, dir: File) {
         settings = s
         if (started) return
+        file = File(dir, "telegram-queue.txt")
+        load()
         started = true
         Thread(::loop, "telegram").apply { isDaemon = true }.start()
     }
 
     fun enqueue(text: String) {
-        queue.offer(Msg(text, System.currentTimeMillis()))
+        queue.offer(Msg(text, Clock.now()))
+        persist()
+    }
+
+    // One message per line: "<created ms>\t<text with \\ and \n escaped>"
+    private fun load() {
+        val f = file ?: return
+        if (!f.exists()) return
+        try {
+            f.readLines().forEach { line ->
+                val tab = line.indexOf('\t')
+                if (tab <= 0) return@forEach
+                val created = line.substring(0, tab).toLongOrNull() ?: return@forEach
+                queue.offer(Msg(unescape(line.substring(tab + 1)), created))
+            }
+        } catch (_: Exception) {
+        }
+    }
+
+    @Synchronized
+    private fun persist() {
+        val f = file ?: return
+        try {
+            val snapshot = queue.toList()
+            if (snapshot.isEmpty()) f.delete()
+            else f.writeAtomically { w -> snapshot.forEach { w.write("${it.created}\t${escape(it.text)}\n") } }
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun escape(s: String) = s.replace("\\", "\\\\").replace("\n", "\\n")
+
+    private fun unescape(s: String) = buildString {
+        var i = 0
+        while (i < s.length) {
+            val c = s[i]
+            if (c == '\\' && i + 1 < s.length) {
+                append(if (s[i + 1] == 'n') '\n' else s[i + 1])
+                i += 2
+            } else {
+                append(c); i++
+            }
+        }
     }
 
     fun validToken(token: String) = TOKEN_RE.matches(token)
@@ -48,13 +95,16 @@ object Telegram {
             } catch (_: InterruptedException) {
                 return
             }
-            if (!settings.telegramReady) continue
-            if (System.currentTimeMillis() - m.created > MAX_AGE_MS) continue
+            if (!settings.telegramReady || Clock.now() - m.created > MAX_AGE_MS) {
+                persist()
+                continue
+            }
             try {
                 send(settings.tgToken, settings.tgChatId, m.text)
+                persist()
             } catch (e: TelegramException) {
                 // 4xx = bad token / chat id; retrying won't help, except for rate limiting
-                if (e.code == 429 || e.code >= 500) retryLater(m)
+                if (e.code == 429 || e.code >= 500) retryLater(m) else persist()
             } catch (e: Exception) {
                 retryLater(m)
             }
@@ -72,7 +122,7 @@ object Telegram {
     fun send(token: String, chatId: String, text: String) {
         try {
             call(token, "sendMessage", mapOf("chat_id" to chatId, "text" to text))
-            lastSent = System.currentTimeMillis()
+            lastSent = Clock.now()
             lastError = null
         } catch (e: Exception) {
             lastError = e.message ?: e.javaClass.simpleName
@@ -100,7 +150,7 @@ object Telegram {
     }
 
     private fun call(token: String, method: String, form: Map<String, String>?): JSONObject {
-        if (!validToken(token)) throw TelegramException(400, "невірний формат токена")
+        if (!validToken(token)) throw TelegramException(400, "invalid token format / невірний формат токена")
         val c = URL("https://api.telegram.org/bot$token/$method").openConnection() as HttpURLConnection
         try {
             c.connectTimeout = 15_000

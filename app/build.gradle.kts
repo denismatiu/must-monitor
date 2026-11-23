@@ -28,4 +28,7 @@ android {
 dependencies {
     implementation("com.github.mik3y:usb-serial-for-android:3.8.1")
     implementation("org.nanohttpd:nanohttpd:2.3.1")
+    testImplementation("junit:junit:4.13.2")
+    // real org.json for JVM tests (Android's copy is a stub there)
+    testImplementation("org.json:json:20231013")
 }

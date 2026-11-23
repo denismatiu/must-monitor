@@ -10,8 +10,6 @@ import com.hoho.android.usbserial.driver.UsbSerialProber
 object Inverter {
     private const val ACTION_USB_PERMISSION = "ua.den.mustmonitor.USB_PERMISSION"
 
-    const val MAX_POWER_W = 15_000.0
-
     val lock = Any()
     private var port: UsbSerialPort? = null
     private var lastPermissionRequest = 0L
@@ -43,8 +41,14 @@ object Inverter {
             return null
         }
         val p = driver.ports[0]
-        p.open(conn)
-        p.setParameters(Registers.BAUD, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+        try {
+            p.open(conn)
+            p.setParameters(Registers.BAUD, 8, UsbSerialPort.STOPBITS_1, UsbSerialPort.PARITY_NONE)
+        } catch (e: Exception) {
+            try { p.close() } catch (_: Exception) {}
+            conn.close()
+            throw e
+        }
         State.device = "%s %04X:%04X".format(
             driver.javaClass.simpleName, driver.device.vendorId, driver.device.productId
         )
@@ -60,9 +64,10 @@ object Inverter {
         port = null
     }
 
-    fun poll(ctx: Context) {
+    /** Reads all registers; null if the USB device is not available. Publishing is up to the caller. */
+    fun poll(ctx: Context): Map<String, Double>? {
         synchronized(lock) {
-            val p = ensurePort(ctx) ?: return
+            val p = ensurePort(ctx) ?: return null
             val out = LinkedHashMap<String, Double>()
 
             val inv = Modbus.readHolding(p, Registers.SLAVE, Registers.INV_START, Registers.INV_COUNT)
@@ -76,22 +81,12 @@ object Inverter {
                 State.chargerError = e.message
             }
 
-            // Glitches around grid switchover: small negative load values, absurd spikes.
-            for (k in listOf("must_load_power_watts", "must_inverter_power_watts", "must_load_percent")) {
-                val x = out[k] ?: continue
-                out[k] = if (x > MAX_POWER_W) Double.NaN else x.coerceAtLeast(0.0)
-            }
-
-            out["must_battery_soc_estimate_percent"] =
-                Registers.socEstimate(out["must_battery_voltage_volts"] ?: 0.0)
-
-            State.values = out
-            State.lastOk = System.currentTimeMillis()
-            State.lastError = null
+            return out
         }
     }
 
     fun raw(addr: Int, count: Int): IntArray {
+        require(addr in 0..65535 && count in 1..125 && addr + count <= 65536) { "addr/count out of range" }
         synchronized(lock) {
             val p = port ?: throw ModbusException("port not open")
             return Modbus.readHolding(p, Registers.SLAVE, addr, count)

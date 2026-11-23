@@ -10,11 +10,18 @@ object State {
     /** null until the first reading ever. */
     @Volatile var gridOn: Boolean? = null
     @Volatile var gridSince: Long = 0
-    @Volatile var batteryWh: Double = 3000.0
+    /** Battery of the device running the app; null if it has none. */
+    @Volatile var deviceBatteryPercent: Double? = null
+    @Volatile var deviceCharging: Boolean = false
+
+    @Volatile var batteryWh: Double = Settings.DEFAULT_BATTERY_WH.toDouble()
+
+    /** Errors of subsystems that failed to start (web server, storage…), shown in /api/state. */
+    val startupErrors: MutableMap<String, String> = java.util.concurrent.ConcurrentHashMap()
 
     /** Best available state of charge: energy-counted if available, else voltage-based. */
     fun soc(v: Map<String, Double> = values): Double? =
-        v["must_battery_soc_energy_percent"] ?: v["must_battery_soc_estimate_percent"]
+        v["must_battery_soc_percent"] ?: v["must_battery_soc_energy_percent"] ?: v["must_battery_soc_estimate_percent"]
 
     const val HISTORY_RETENTION_MS = 24 * 3600_000L
     const val HISTORY_MAX = 3200
@@ -35,6 +42,7 @@ object State {
         Col("must_battery_soc_estimate_percent", "must_battery_soc_estimate_percent", Agg.AVG),
         Col("must_battery_soc_energy_percent", "must_battery_soc_energy_percent", Agg.AVG),
         Col("must_grid_import_watts", "must_grid_import_watts", Agg.AVG),
+        Col("must_load_power_unmeasured", "must_load_power_unmeasured", Agg.MAX),
     )
     val historyKeys = cols.map { it.name }
 
@@ -42,7 +50,7 @@ object State {
     private val cnt = IntArray(cols.size)
     private val history = ArrayDeque<DoubleArray>()
 
-    fun online(): Boolean = System.currentTimeMillis() - lastOk < 30_000
+    fun online(): Boolean = Clock.now() - lastOk < 30_000
 
     fun sample(v: Map<String, Double>) = synchronized(acc) {
         cols.forEachIndexed { i, c ->
@@ -61,7 +69,7 @@ object State {
     fun takeRow(): DoubleArray? = synchronized(acc) {
         if (cnt.all { it == 0 }) return null
         val row = DoubleArray(cols.size + 1)
-        row[0] = (System.currentTimeMillis() / 1000).toDouble()
+        row[0] = (Clock.now() / 1000).toDouble()
         cols.forEachIndexed { i, c ->
             row[i + 1] = when {
                 cnt[i] == 0 -> Double.NaN
@@ -86,11 +94,25 @@ object State {
     }
 
     private fun trim() {
-        val cutoff = (System.currentTimeMillis() - HISTORY_RETENTION_MS) / 1000.0
+        val cutoff = (Clock.now() - HISTORY_RETENTION_MS) / 1000.0
         while (history.isNotEmpty() && (history.first()[0] < cutoff || history.size > HISTORY_MAX)) {
             history.removeFirst()
         }
     }
 
     fun historySnapshot(): List<DoubleArray> = synchronized(history) { history.toList() }
+
+    /** Adds rows that are not there yet (by timestamp), keeps order and retention. Returns how many were added. */
+    fun mergeHistory(rows: List<DoubleArray>): Int = synchronized(history) {
+        val have = history.map { it[0].toLong() }.toHashSet()
+        val add = rows.filter { it[0].toLong() !in have }
+        if (add.isEmpty()) return 0
+        val all = (history + add).sortedBy { it[0] }
+        history.clear()
+        history.addAll(all)
+        trim()
+        add.count { r -> history.any { it === r } }
+    }
+
+    fun historySince(ts: Double): List<DoubleArray> = synchronized(history) { history.filter { it[0] > ts } }
 }

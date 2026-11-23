@@ -8,6 +8,10 @@ import java.util.Locale
  * Rows are appended; the file is rewritten (trimmed to the retention window) periodically.
  */
 class HistoryStore(dir: File) {
+    private companion object {
+        const val LEGACY_GLITCH_W = 10_000.0
+    }
+
     private val file = File(dir, "history.csv")
     private val header = (listOf("ts") + State.historyKeys).joinToString(",")
     private var needsRewrite = false
@@ -21,8 +25,8 @@ class HistoryStore(dir: File) {
             val cols = lines[0].split(',')
             needsRewrite = lines[0] != header
             val idx = State.historyKeys.map { cols.indexOf(it) }
-            val isLoad = State.historyKeys.map { it.startsWith("must_load_power") }
-            val cutoff = (System.currentTimeMillis() - State.HISTORY_RETENTION_MS) / 1000.0
+            val isLoad = State.historyKeys.map { it.startsWith("must_load_power") && it.endsWith("_watts") }
+            val cutoff = (Clock.now() - State.HISTORY_RETENTION_MS) / 1000.0
             lines.drop(1).mapNotNull { line ->
                 val p = line.split(',')
                 val ts = p[0].toDoubleOrNull() ?: return@mapNotNull null
@@ -30,8 +34,9 @@ class HistoryStore(dir: File) {
                 DoubleArray(idx.size + 1) { i ->
                     if (i == 0) ts else idx[i - 1].let { j ->
                         val x = if (j < 0) Double.NaN else p[j].toDoubleOrNull() ?: Double.NaN
-                        // drop points polluted by the old unsigned-load glitch (65485 W)
-                        if (isLoad[i - 1] && x > 10_000) Double.NaN else x
+                        // Rows written before the load register was read as signed contain 65485 W glitches,
+                        // and 30 s averages that include one (~11-13 kW). Lower than Derive.MAX_POWER_W on purpose.
+                        if (isLoad[i - 1] && x > LEGACY_GLITCH_W) Double.NaN else x
                     }
                 }
             }
@@ -55,15 +60,21 @@ class HistoryStore(dir: File) {
         }
     }
 
+    /** Rewrites the file from the in-memory history (after a restore merged rows into it). */
+    fun rewriteFromState() {
+        try {
+            rewrite(State.historySnapshot())
+            needsRewrite = false
+            appended = 0
+        } catch (_: Exception) {
+            needsRewrite = true
+        }
+    }
+
     private fun rewrite(rows: List<DoubleArray>) {
-        val tmp = File(file.parentFile, file.name + ".tmp")
-        tmp.bufferedWriter().use { w ->
+        file.writeAtomically { w ->
             w.write(header); w.write("\n")
             for (r in rows) { w.write(line(r)); w.write("\n") }
-        }
-        if (!tmp.renameTo(file)) {
-            file.delete()
-            tmp.renameTo(file)
         }
     }
 
@@ -97,7 +108,17 @@ object EventLog {
             } catch (_: Exception) {
             }
         }
-        while (events.size > KEEP) events.removeFirst()
+        if (events.size > KEEP) {
+            while (events.size > KEEP) events.removeFirst()
+            rewrite(f)
+        }
+    }
+
+    private fun rewrite(f: File) {
+        try {
+            f.writeAtomically { w -> events.forEach { w.write("${it.first},${if (it.second) 1 else 0}\n") } }
+        } catch (_: Exception) {
+        }
     }
 
     @Synchronized
@@ -107,7 +128,7 @@ object EventLog {
         try {
             if (events.size > 2 * KEEP) {
                 while (events.size > KEEP) events.removeFirst()
-                f.writeText(events.joinToString("") { "${it.first},${if (it.second) 1 else 0}\n" })
+                rewrite(f)
             } else {
                 f.appendText("$ts,${if (on) 1 else 0}\n")
             }
@@ -117,4 +138,17 @@ object EventLog {
 
     @Synchronized
     fun snapshot(): List<Pair<Long, Boolean>> = events.toList()
+
+    /** Adds events that are not there yet (by timestamp) and rewrites the file. Returns how many were added. */
+    @Synchronized
+    fun merge(list: List<Pair<Long, Boolean>>): Int {
+        val have = events.map { it.first }.toHashSet()
+        val add = list.filter { it.first !in have }
+        if (add.isEmpty()) return 0
+        val all = (events + add).sortedBy { it.first }
+        events.clear()
+        events.addAll(all.takeLast(KEEP))
+        file?.let { rewrite(it) }
+        return add.size
+    }
 }
